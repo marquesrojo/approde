@@ -25,90 +25,91 @@ const GROUPS = {
 
 const MATCHES = [
   // Grupo A
-  { id: 1,  group: 'A', home: 'México',        away: 'Sudáfrica',      date: '11 Jun' },
-  { id: 2,  group: 'A', home: 'Corea del Sur', away: 'Rep. Checa',     date: '12 Jun' },
-  { id: 3,  group: 'A', home: 'México',        away: 'Corea del Sur',  date: '16 Jun' },
-  { id: 4,  group: 'A', home: 'Sudáfrica',     away: 'Rep. Checa',     date: '16 Jun' },
-  { id: 5,  group: 'A', home: 'México',        away: 'Rep. Checa',     date: '20 Jun' },
-  { id: 6,  group: 'A', home: 'Sudáfrica',     away: 'Corea del Sur',  date: '20 Jun' },
+  { id: 1,  group: 'A', home: 'México',          away: 'Sudáfrica',       date: '11 Jun', time: '16:00 ARG', kickoff: '2026-06-11T19:00:00Z' },
+  { id: 2,  group: 'A', home: 'Corea del Sur',   away: 'Rep. Checa',      date: '11 Jun', time: '23:00 ARG', kickoff: '2026-06-12T02:00:00Z' },
+  { id: 3,  group: 'A', home: 'México',          away: 'Corea del Sur',   date: '18 Jun', time: '22:00 ARG', kickoff: '2026-06-19T01:00:00Z' },
+  { id: 4,  group: 'A', home: 'Sudáfrica',       away: 'Rep. Checa',      date: '18 Jun', time: '13:00 ARG', kickoff: '2026-06-18T16:00:00Z' },
+  { id: 5,  group: 'A', home: 'México',          away: 'Rep. Checa',      date: '24 Jun', time: '22:00 ARG', kickoff: '2026-06-25T01:00:00Z' },
+  { id: 6,  group: 'A', home: 'Sudáfrica',       away: 'Corea del Sur',   date: '24 Jun', time: '22:00 ARG', kickoff: '2026-06-25T01:00:00Z' },
   // Grupo B
-  { id: 7,  group: 'B', home: 'Canadá',        away: 'Suiza',          date: '12 Jun' },
-  { id: 8,  group: 'B', home: 'Qatar',         away: 'Italia',         date: '12 Jun' },
-  { id: 9,  group: 'B', home: 'Canadá',        away: 'Qatar',          date: '16 Jun' },
-  { id: 10, group: 'B', home: 'Suiza',         away: 'Italia',         date: '17 Jun' },
-  { id: 11, group: 'B', home: 'Canadá',        away: 'Italia',         date: '21 Jun' },
-  { id: 12, group: 'B', home: 'Suiza',         away: 'Qatar',          date: '21 Jun' },
+  { id: 7,  group: 'B', home: 'Canadá',          away: 'Bosnia',          date: '12 Jun', time: '16:00 ARG', kickoff: '2026-06-12T19:00:00Z' },
+  { id: 8,  group: 'B', home: 'Qatar',           away: 'Suiza',           date: '13 Jun', time: '16:00 ARG', kickoff: '2026-06-13T19:00:00Z' },
+  { id: 9,  group: 'B', home: 'Suiza',           away: 'Bosnia',          date: '18 Jun', time: '16:00 ARG', kickoff: '2026-06-18T19:00:00Z' },
+  { id: 10, group: 'B', home: 'Canadá',          away: 'Qatar',           date: '18 Jun', time: '19:00 ARG', kickoff: '2026-06-18T22:00:00Z' },
+  { id: 11, group: 'B', home: 'Canadá',          away: 'Suiza',           date: '24 Jun', time: '19:00 ARG', kickoff: '2026-06-24T22:00:00Z' },
+  { id: 12, group: 'B', home: 'Bosnia',          away: 'Qatar',           date: '24 Jun', time: '19:00 ARG', kickoff: '2026-06-24T22:00:00Z' },
   // Grupo C
-  { id: 13, group: 'C', home: 'Brasil',        away: 'Marruecos',      date: '13 Jun' },
-  { id: 14, group: 'C', home: 'Escocia',       away: 'Haití',          date: '13 Jun' },
-  { id: 15, group: 'C', home: 'Brasil',        away: 'Escocia',        date: '17 Jun' },
-  { id: 16, group: 'C', home: 'Marruecos',     away: 'Haití',          date: '17 Jun' },
-  { id: 17, group: 'C', home: 'Brasil',        away: 'Haití',          date: '21 Jun' },
-  { id: 18, group: 'C', home: 'Marruecos',     away: 'Escocia',        date: '21 Jun' },
+  { id: 13, group: 'C', home: 'Brasil',          away: 'Marruecos',       date: '13 Jun', time: '19:00 ARG', kickoff: '2026-06-13T22:00:00Z' },
+  { id: 14, group: 'C', home: 'Haití',           away: 'Escocia',         date: '13 Jun', time: '22:00 ARG', kickoff: '2026-06-14T01:00:00Z' },
+  { id: 15, group: 'C', home: 'Brasil',          away: 'Escocia',         date: '19 Jun', time: '16:00 ARG', kickoff: '2026-06-19T19:00:00Z' },
+  { id: 16, group: 'C', home: 'Marruecos',       away: 'Haití',           date: '19 Jun', time: '19:00 ARG', kickoff: '2026-06-19T22:00:00Z' },
+  { id: 17, group: 'C', home: 'Brasil',          away: 'Haití',           date: '25 Jun', time: '19:00 ARG', kickoff: '2026-06-25T22:00:00Z' },
+  { id: 18, group: 'C', home: 'Marruecos',       away: 'Escocia',         date: '25 Jun', time: '19:00 ARG', kickoff: '2026-06-25T22:00:00Z' },
   // Grupo D
-  { id: 19, group: 'D', home: 'EE.UU.',        away: 'Australia',      date: '13 Jun' },
-  { id: 20, group: 'D', home: 'Paraguay',      away: 'Turquía',        date: '14 Jun' },
-  { id: 21, group: 'D', home: 'EE.UU.',        away: 'Paraguay',       date: '18 Jun' },
-  { id: 22, group: 'D', home: 'Australia',     away: 'Turquía',        date: '18 Jun' },
-  { id: 23, group: 'D', home: 'EE.UU.',        away: 'Turquía',        date: '22 Jun' },
-  { id: 24, group: 'D', home: 'Australia',     away: 'Paraguay',       date: '22 Jun' },
+  { id: 19, group: 'D', home: 'EE.UU.',          away: 'Paraguay',        date: '12 Jun', time: '22:00 ARG', kickoff: '2026-06-13T01:00:00Z' },
+  { id: 20, group: 'D', home: 'Australia',       away: 'Turquía',         date: '13 Jun', time: '01:00 ARG', kickoff: '2026-06-13T04:00:00Z' },
+  { id: 21, group: 'D', home: 'EE.UU.',          away: 'Australia',       date: '19 Jun', time: '16:00 ARG', kickoff: '2026-06-19T19:00:00Z' },
+  { id: 22, group: 'D', home: 'Paraguay',        away: 'Turquía',         date: '19 Jun', time: '22:00 ARG', kickoff: '2026-06-20T01:00:00Z' },
+  { id: 23, group: 'D', home: 'EE.UU.',          away: 'Turquía',         date: '25 Jun', time: '19:00 ARG', kickoff: '2026-06-25T22:00:00Z' },
+  { id: 24, group: 'D', home: 'Australia',       away: 'Paraguay',        date: '25 Jun', time: '19:00 ARG', kickoff: '2026-06-25T22:00:00Z' },
   // Grupo E
-  { id: 25, group: 'E', home: 'Alemania',      away: 'Ecuador',        date: '14 Jun' },
-  { id: 26, group: 'E', home: 'Costa de Marfil', away: 'Curazao',      date: '14 Jun' },
-  { id: 27, group: 'E', home: 'Alemania',      away: 'Costa de Marfil', date: '18 Jun' },
-  { id: 28, group: 'E', home: 'Ecuador',       away: 'Curazao',        date: '18 Jun' },
-  { id: 29, group: 'E', home: 'Alemania',      away: 'Curazao',        date: '22 Jun' },
-  { id: 30, group: 'E', home: 'Ecuador',       away: 'Costa de Marfil', date: '22 Jun' },
+  { id: 25, group: 'E', home: 'Alemania',        away: 'Curazao',         date: '14 Jun', time: '14:00 ARG', kickoff: '2026-06-14T17:00:00Z' },
+  { id: 26, group: 'E', home: 'Costa de Marfil', away: 'Ecuador',         date: '14 Jun', time: '20:00 ARG', kickoff: '2026-06-14T23:00:00Z' },
+  { id: 27, group: 'E', home: 'Alemania',        away: 'Costa de Marfil', date: '20 Jun', time: '16:00 ARG', kickoff: '2026-06-20T19:00:00Z' },
+  { id: 28, group: 'E', home: 'Ecuador',         away: 'Curazao',         date: '20 Jun', time: '22:00 ARG', kickoff: '2026-06-21T01:00:00Z' },
+  { id: 29, group: 'E', home: 'Alemania',        away: 'Ecuador',         date: '26 Jun', time: '19:00 ARG', kickoff: '2026-06-26T22:00:00Z' },
+  { id: 30, group: 'E', home: 'Costa de Marfil', away: 'Curazao',         date: '26 Jun', time: '19:00 ARG', kickoff: '2026-06-26T22:00:00Z' },
   // Grupo F
-  { id: 31, group: 'F', home: 'Países Bajos',  away: 'Japón',          date: '14 Jun' },
-  { id: 32, group: 'F', home: 'Túnez',         away: 'Ucrania',        date: '15 Jun' },
-  { id: 33, group: 'F', home: 'Países Bajos',  away: 'Túnez',          date: '19 Jun' },
-  { id: 34, group: 'F', home: 'Japón',         away: 'Ucrania',        date: '19 Jun' },
-  { id: 35, group: 'F', home: 'Países Bajos',  away: 'Ucrania',        date: '23 Jun' },
-  { id: 36, group: 'F', home: 'Japón',         away: 'Túnez',          date: '23 Jun' },
+  { id: 31, group: 'F', home: 'Países Bajos',    away: 'Japón',           date: '14 Jun', time: '17:00 ARG', kickoff: '2026-06-14T20:00:00Z' },
+  { id: 32, group: 'F', home: 'Suecia',          away: 'Túnez',           date: '14 Jun', time: '23:00 ARG', kickoff: '2026-06-15T02:00:00Z' },
+  { id: 33, group: 'F', home: 'Países Bajos',    away: 'Suecia',          date: '20 Jun', time: '16:00 ARG', kickoff: '2026-06-20T19:00:00Z' },
+  { id: 34, group: 'F', home: 'Japón',           away: 'Túnez',           date: '20 Jun', time: '19:00 ARG', kickoff: '2026-06-20T22:00:00Z' },
+  { id: 35, group: 'F', home: 'Países Bajos',    away: 'Túnez',           date: '26 Jun', time: '19:00 ARG', kickoff: '2026-06-26T22:00:00Z' },
+  { id: 36, group: 'F', home: 'Japón',           away: 'Suecia',          date: '26 Jun', time: '19:00 ARG', kickoff: '2026-06-26T22:00:00Z' },
   // Grupo G
-  { id: 37, group: 'G', home: 'Bélgica',       away: 'Irán',           date: '15 Jun' },
-  { id: 38, group: 'G', home: 'Egipto',        away: 'Nueva Zelanda',  date: '15 Jun' },
-  { id: 39, group: 'G', home: 'Bélgica',       away: 'Egipto',         date: '19 Jun' },
-  { id: 40, group: 'G', home: 'Irán',          away: 'Nueva Zelanda',  date: '19 Jun' },
-  { id: 41, group: 'G', home: 'Bélgica',       away: 'Nueva Zelanda',  date: '23 Jun' },
-  { id: 42, group: 'G', home: 'Irán',          away: 'Egipto',         date: '23 Jun' },
+  { id: 37, group: 'G', home: 'Bélgica',         away: 'Egipto',          date: '15 Jun', time: '16:00 ARG', kickoff: '2026-06-15T19:00:00Z' },
+  { id: 38, group: 'G', home: 'Irán',            away: 'Nueva Zelanda',   date: '15 Jun', time: '22:00 ARG', kickoff: '2026-06-16T01:00:00Z' },
+  { id: 39, group: 'G', home: 'Bélgica',         away: 'Irán',            date: '21 Jun', time: '16:00 ARG', kickoff: '2026-06-21T19:00:00Z' },
+  { id: 40, group: 'G', home: 'Egipto',          away: 'Nueva Zelanda',   date: '21 Jun', time: '19:00 ARG', kickoff: '2026-06-21T22:00:00Z' },
+  { id: 41, group: 'G', home: 'Bélgica',         away: 'Nueva Zelanda',   date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 42, group: 'G', home: 'Irán',            away: 'Egipto',          date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   // Grupo H
-  { id: 43, group: 'H', home: 'España',        away: 'Uruguay',        date: '15 Jun' },
-  { id: 44, group: 'H', home: 'Arabia Saudita', away: 'Cabo Verde',    date: '15 Jun' },
-  { id: 45, group: 'H', home: 'España',        away: 'Arabia Saudita', date: '19 Jun' },
-  { id: 46, group: 'H', home: 'Uruguay',       away: 'Cabo Verde',     date: '20 Jun' },
-  { id: 47, group: 'H', home: 'España',        away: 'Cabo Verde',     date: '24 Jun' },
-  { id: 48, group: 'H', home: 'Uruguay',       away: 'Arabia Saudita', date: '24 Jun' },
+  { id: 43, group: 'H', home: 'España',          away: 'Cabo Verde',      date: '15 Jun', time: '13:00 ARG', kickoff: '2026-06-15T16:00:00Z' },
+  { id: 44, group: 'H', home: 'Arabia Saudita',  away: 'Uruguay',         date: '15 Jun', time: '19:00 ARG', kickoff: '2026-06-15T22:00:00Z' },
+  { id: 45, group: 'H', home: 'España',          away: 'Arabia Saudita',  date: '21 Jun', time: '16:00 ARG', kickoff: '2026-06-21T19:00:00Z' },
+  { id: 46, group: 'H', home: 'Uruguay',         away: 'Cabo Verde',      date: '21 Jun', time: '19:00 ARG', kickoff: '2026-06-21T22:00:00Z' },
+  { id: 47, group: 'H', home: 'España',          away: 'Uruguay',         date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 48, group: 'H', home: 'Arabia Saudita',  away: 'Cabo Verde',      date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   // Grupo I
-  { id: 49, group: 'I', home: 'Francia',       away: 'Senegal',        date: '16 Jun' },
-  { id: 50, group: 'I', home: 'Noruega',       away: 'Bolivia',        date: '16 Jun' },
-  { id: 51, group: 'I', home: 'Francia',       away: 'Noruega',        date: '20 Jun' },
-  { id: 52, group: 'I', home: 'Senegal',       away: 'Bolivia',        date: '20 Jun' },
-  { id: 53, group: 'I', home: 'Francia',       away: 'Bolivia',        date: '24 Jun' },
-  { id: 54, group: 'I', home: 'Senegal',       away: 'Noruega',        date: '24 Jun' },
+  { id: 49, group: 'I', home: 'Francia',         away: 'Senegal',         date: '16 Jun', time: '17:00 ARG', kickoff: '2026-06-16T20:00:00Z' },
+  { id: 50, group: 'I', home: 'Irak',            away: 'Noruega',         date: '16 Jun', time: '20:00 ARG', kickoff: '2026-06-16T23:00:00Z' },
+  { id: 51, group: 'I', home: 'Francia',         away: 'Irak',            date: '22 Jun', time: '16:00 ARG', kickoff: '2026-06-22T19:00:00Z' },
+  { id: 52, group: 'I', home: 'Senegal',         away: 'Noruega',         date: '22 Jun', time: '19:00 ARG', kickoff: '2026-06-22T22:00:00Z' },
+  { id: 53, group: 'I', home: 'Francia',         away: 'Noruega',         date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 54, group: 'I', home: 'Senegal',         away: 'Irak',            date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   // Grupo J
-  { id: 55, group: 'J', home: 'Argentina',     away: 'Austria',        date: '16 Jun' },
-  { id: 56, group: 'J', home: 'Argelia',       away: 'Jordania',       date: '17 Jun' },
-  { id: 57, group: 'J', home: 'Argentina',     away: 'Argelia',        date: '21 Jun' },
-  { id: 58, group: 'J', home: 'Austria',       away: 'Jordania',       date: '21 Jun' },
-  { id: 59, group: 'J', home: 'Argentina',     away: 'Jordania',       date: '25 Jun' },
-  { id: 60, group: 'J', home: 'Austria',       away: 'Argelia',        date: '25 Jun' },
+  { id: 55, group: 'J', home: 'Argentina',       away: 'Argelia',         date: '16 Jun', time: '22:00 ARG', kickoff: '2026-06-17T01:00:00Z' },
+  { id: 56, group: 'J', home: 'Austria',         away: 'Jordania',        date: '17 Jun', time: '13:00 ARG', kickoff: '2026-06-17T16:00:00Z' },
+  { id: 57, group: 'J', home: 'Argentina',       away: 'Austria',         date: '22 Jun', time: '22:00 ARG', kickoff: '2026-06-23T01:00:00Z' },
+  { id: 58, group: 'J', home: 'Argelia',         away: 'Jordania',        date: '22 Jun', time: '16:00 ARG', kickoff: '2026-06-22T19:00:00Z' },
+  { id: 59, group: 'J', home: 'Argentina',       away: 'Jordania',        date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 60, group: 'J', home: 'Austria',         away: 'Argelia',         date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   // Grupo K
-  { id: 61, group: 'K', home: 'Portugal',      away: 'Colombia',       date: '17 Jun' },
-  { id: 62, group: 'K', home: 'Uzbekistán',    away: 'Jamaica',        date: '17 Jun' },
-  { id: 63, group: 'K', home: 'Portugal',      away: 'Uzbekistán',     date: '21 Jun' },
-  { id: 64, group: 'K', home: 'Colombia',      away: 'Jamaica',        date: '22 Jun' },
-  { id: 65, group: 'K', home: 'Portugal',      away: 'Jamaica',        date: '26 Jun' },
-  { id: 66, group: 'K', home: 'Colombia',      away: 'Uzbekistán',     date: '26 Jun' },
+  { id: 61, group: 'K', home: 'Portugal',        away: 'Colombia',        date: '17 Jun', time: '20:00 ARG', kickoff: '2026-06-17T23:00:00Z' },
+  { id: 62, group: 'K', home: 'Uzbekistán',      away: 'Jamaica',         date: '17 Jun', time: '16:00 ARG', kickoff: '2026-06-17T19:00:00Z' },
+  { id: 63, group: 'K', home: 'Portugal',        away: 'Uzbekistán',      date: '22 Jun', time: '22:00 ARG', kickoff: '2026-06-23T01:00:00Z' },
+  { id: 64, group: 'K', home: 'Colombia',        away: 'Jamaica',         date: '23 Jun', time: '16:00 ARG', kickoff: '2026-06-23T19:00:00Z' },
+  { id: 65, group: 'K', home: 'Portugal',        away: 'Jamaica',         date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 66, group: 'K', home: 'Colombia',        away: 'Uzbekistán',      date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   // Grupo L
-  { id: 67, group: 'L', home: 'Inglaterra',    away: 'Croacia',        date: '17 Jun' },
-  { id: 68, group: 'L', home: 'Panamá',        away: 'Ghana',          date: '18 Jun' },
-  { id: 69, group: 'L', home: 'Inglaterra',    away: 'Panamá',         date: '22 Jun' },
-  { id: 70, group: 'L', home: 'Croacia',       away: 'Ghana',          date: '22 Jun' },
-  { id: 71, group: 'L', home: 'Inglaterra',    away: 'Ghana',          date: '26 Jun' },
-  { id: 72, group: 'L', home: 'Croacia',       away: 'Panamá',         date: '26 Jun' },
+  { id: 67, group: 'L', home: 'Inglaterra',      away: 'Croacia',         date: '17 Jun', time: '19:00 ARG', kickoff: '2026-06-17T22:00:00Z' },
+  { id: 68, group: 'L', home: 'Panamá',          away: 'Ghana',           date: '18 Jun', time: '13:00 ARG', kickoff: '2026-06-18T16:00:00Z' },
+  { id: 69, group: 'L', home: 'Inglaterra',      away: 'Panamá',          date: '23 Jun', time: '22:00 ARG', kickoff: '2026-06-24T01:00:00Z' },
+  { id: 70, group: 'L', home: 'Croacia',         away: 'Ghana',           date: '23 Jun', time: '16:00 ARG', kickoff: '2026-06-23T19:00:00Z' },
+  { id: 71, group: 'L', home: 'Inglaterra',      away: 'Ghana',           date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 72, group: 'L', home: 'Croacia',         away: 'Panamá',          date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
 ]
+
 
 const ALL_TEAMS = [
   'Argentina','Brasil','Francia','España','Portugal','Alemania',
@@ -295,6 +296,12 @@ function SyncBar({ official, isSyncing }) {
   )
 }
 
+// ─── LOCAL TIME HELPER ────────────────────────────────────────────────────────
+function localTime(kickoff) {
+  if (!kickoff) return ''
+  return new Date(kickoff).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
 // ─── PLAYER SEARCH ────────────────────────────────────────────────────────────
 function PlayerSearch({ value, onChange }) {
   const [query, setQuery] = useState('')
@@ -404,6 +411,10 @@ function parseVoiceScore(transcript) {
 function MatchCard({ match, predictions, officialResults, setPred, S, showGroup = false }) {
   const pred = predictions[match.id] || {}
   const off = officialResults[match.id]
+  const now = Date.now()
+  const kickoffMs = match.kickoff ? new Date(match.kickoff).getTime() : null
+  const isLocked = off || (kickoffMs && now > kickoffMs + 10 * 60 * 1000)
+  const isKickoffSoon = kickoffMs && now > kickoffMs - 30 * 60 * 1000 && now < kickoffMs
   const hasOfficial = !!off
   const [listening, setListening] = useState(false)
   const [voiceMsg, setVoiceMsg] = useState('')
@@ -447,22 +458,27 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
     <div style={{ ...S.card, borderColor: exact ? '#00e5a044' : correct ? '#f7c94844' : '#1e2535' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <span style={{ color: '#4a5568', fontSize: 11 }}>
-          {showGroup ? `Grupo ${match.group}` : `📅 ${match.date}`}
+          {showGroup ? `Grupo ${match.group} · ` : ''}{match.date}
+          {match.kickoff && <span style={{ color: isKickoffSoon ? '#f7c948' : '#4a5568', fontWeight: isKickoffSoon ? 700 : 400 }}> · {localTime(match.kickoff)}</span>}
         </span>
-        {exact && <span style={{ color: '#00e5a0', fontSize: 12, fontWeight: 700 }}>⭐ Exacto +3</span>}
-        {correct && !exact && <span style={{ color: '#f7c948', fontSize: 12, fontWeight: 700 }}>✓ Resultado +1</span>}
-        {hasOfficial && !correct && predResult !== null && <span style={{ color: '#ff6b6b', fontSize: 12 }}>✗ Sin puntos</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isLocked && !hasOfficial && <span style={{ background: '#ff6b3522', color: '#ff6b35', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>🔒 Cerrado</span>}
+          {isKickoffSoon && <span style={{ background: '#f7c94822', color: '#f7c948', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>⏰ ¡Pronto!</span>}
+          {exact && <span style={{ color: '#00e5a0', fontSize: 12, fontWeight: 700 }}>⭐ Exacto +3</span>}
+          {correct && !exact && <span style={{ color: '#f7c948', fontSize: 12, fontWeight: 700 }}>✓ Resultado +1</span>}
+          {hasOfficial && !correct && predResult !== null && <span style={{ color: '#ff6b6b', fontSize: 12 }}>✗ Sin puntos</span>}
+        </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.home} /> {match.home}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input type="number" min="0" max="20" style={S.input} value={pred.home ?? ''} onChange={e => setPred(match.id, 'home', e.target.value)} disabled={hasOfficial} placeholder="–" />
+          <input type="number" min="0" max="20" style={{...S.input, opacity: isLocked ? 0.5 : 1}} value={pred.home ?? ''} onChange={e => setPred(match.id, 'home', e.target.value)} disabled={isLocked} placeholder="–" />
           <span style={{ color: '#4a5568', fontWeight: 700 }}>:</span>
-          <input type="number" min="0" max="20" style={S.input} value={pred.away ?? ''} onChange={e => setPred(match.id, 'away', e.target.value)} disabled={hasOfficial} placeholder="–" />
+          <input type="number" min="0" max="20" style={{...S.input, opacity: isLocked ? 0.5 : 1}} value={pred.away ?? ''} onChange={e => setPred(match.id, 'away', e.target.value)} disabled={isLocked} placeholder="–" />
         </div>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.away} /> {match.away}</div>
       </div>
-      {!hasOfficial && (
+      {!isLocked && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
           <button onClick={startVoice} disabled={listening} style={{
             background: listening ? '#6366f1' : '#1e2535',
@@ -479,6 +495,7 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
         </div>
       )}
       {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
+      {isLocked && !hasOfficial && <div style={{ textAlign: 'center', marginTop: 8, color: '#4a5568', fontSize: 11 }}>Pronóstico cerrado — partido iniciado</div>}
     </div>
   )
 }

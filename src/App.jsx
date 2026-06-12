@@ -786,17 +786,68 @@ export default function App() {
         {tab === 'knockout' && (
           <div>
             <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 6px' }}>Fase Eliminatoria</h2>
-            <p style={{ color: '#4a5568', fontSize: 13, margin: '0 0 20px' }}>Pronosticá los resultados de cada ronda</p>
+            <p style={{ color: '#4a5568', fontSize: 13, margin: '0 0 20px' }}>Pronosticá el ganador de cada partido</p>
 
             {[
-              { round: 'R32', label: '32avos de Final', date: '28 Jun – 1 Jul', slots: 16, icon: '⚡' },
-              { round: 'R16', label: 'Octavos de Final', date: '4 – 7 Jul', slots: 8, icon: '🔥' },
-              { round: 'QF',  label: 'Cuartos de Final', date: '11 – 12 Jul', slots: 4, icon: '💥' },
-              { round: 'SF',  label: 'Semifinales',       date: '15 – 16 Jul', slots: 2, icon: '🌟' },
-              { round: 'F',   label: 'Final',             date: '19 Jul · MetLife Stadium', slots: 1, icon: '🏆' },
-            ].map(({ round, label, date, slots, icon }) => {
-              const knockoutPreds = (predictions['knockout'] || {})
-              const filledSlots = Object.keys(knockoutPreds[round] || {}).length
+              {
+                round: 'R32', label: '16avos de Final', date: '28 Jun – 3 Jul', icon: '⚡',
+                matches: [
+                  { id: 'p73',  label: '2°A vs 2°B',              date: '28 Jun' },
+                  { id: 'p74',  label: '1°E vs 3°(A/B/C/D/F)',    date: '29 Jun' },
+                  { id: 'p75',  label: '1°F vs 2°C',              date: '29 Jun' },
+                  { id: 'p76',  label: '1°C vs 2°F',              date: '29 Jun' },
+                  { id: 'p77',  label: '1°I vs 3°(C/D/F/G/H)',    date: '30 Jun' },
+                  { id: 'p78',  label: '2°E vs 2°I',              date: '30 Jun' },
+                  { id: 'p79',  label: '1°A vs 3°(C/E/F/H/I)',    date: '30 Jun' },
+                  { id: 'p80',  label: '1°L vs 3°(E/H/I/J/K)',    date: '1 Jul'  },
+                  { id: 'p81',  label: '1°D vs 3°(B/E/F/I/J)',    date: '1 Jul'  },
+                  { id: 'p82',  label: '1°G vs 3°(A/E/H/I/J)',    date: '1 Jul'  },
+                  { id: 'p83',  label: '2°K vs 2°L',              date: '2 Jul'  },
+                  { id: 'p84',  label: '1°H vs 2°J',              date: '2 Jul'  },
+                  { id: 'p85',  label: '1°B vs 3°(E/F/G/I/J)',    date: '2 Jul'  },
+                  { id: 'p86',  label: '1°J vs 2°H',              date: '3 Jul'  },
+                  { id: 'p87',  label: '1°K vs 3°(D/E/I/J/L)',    date: '3 Jul'  },
+                  { id: 'p88',  label: '2°D vs 2°G',              date: '3 Jul'  },
+                ],
+              },
+              {
+                round: 'R16', label: 'Octavos de Final', date: '4 – 7 Jul', icon: '🔥',
+                matches: [
+                  { id: 'p89', label: 'W(p74) vs W(p77)',  date: '4 Jul' },
+                  { id: 'p90', label: 'W(p73) vs W(p75)',  date: '4 Jul' },
+                  { id: 'p91', label: 'W(p76) vs W(p78)',  date: '5 Jul' },
+                  { id: 'p92', label: 'W(p79) vs W(p80)',  date: '5 Jul' },
+                  { id: 'p93', label: 'W(p83) vs W(p84)',  date: '6 Jul' },
+                  { id: 'p94', label: 'W(p81) vs W(p82)',  date: '6 Jul' },
+                  { id: 'p95', label: 'W(p86) vs W(p88)',  date: '7 Jul' },
+                  { id: 'p96', label: 'W(p85) vs W(p87)',  date: '7 Jul' },
+                ],
+              },
+              {
+                round: 'QF', label: 'Cuartos de Final', date: '9 – 11 Jul', icon: '💥',
+                matches: [
+                  { id: 'p97',  label: 'W(p89) vs W(p90)', date: '9 Jul'  },
+                  { id: 'p98',  label: 'W(p93) vs W(p94)', date: '10 Jul' },
+                  { id: 'p99',  label: 'W(p91) vs W(p92)', date: '11 Jul' },
+                  { id: 'p100', label: 'W(p95) vs W(p96)', date: '11 Jul' },
+                ],
+              },
+              {
+                round: 'SF', label: 'Semifinales', date: '14 – 15 Jul', icon: '🌟',
+                matches: [
+                  { id: 'p101', label: 'W(p97) vs W(p98)',   date: '14 Jul' },
+                  { id: 'p102', label: 'W(p99) vs W(p100)',  date: '15 Jul' },
+                ],
+              },
+              {
+                round: 'F', label: 'Final', date: '19 Jul · MetLife Stadium, New York', icon: '🏆',
+                matches: [
+                  { id: 'p104', label: 'W(p101) vs W(p102)', date: '19 Jul' },
+                ],
+              },
+            ].map(({ round, label, date, icon, matches }) => {
+              const roundPreds = (predictions['knockout'] || {})[round] || {}
+              const filled = Object.values(roundPreds).filter(Boolean).length
               return (
                 <div key={round} style={{ ...S.card, marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -807,26 +858,25 @@ export default function App() {
                         <div style={{ color: '#4a5568', fontSize: 12 }}>{date}</div>
                       </div>
                     </div>
-                    <div style={{ color: filledSlots === slots ? '#00e5a0' : '#4a5568', fontSize: 12, fontWeight: 700 }}>
-                      {filledSlots}/{slots}
+                    <div style={{ color: filled === matches.length ? '#00e5a0' : '#4a5568', fontSize: 12, fontWeight: 700 }}>
+                      {filled}/{matches.length}
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {Array.from({ length: slots }).map((_, i) => {
-                      const key = `${round}_${i}`
-                      const val = knockoutPreds[round]?.[i] || ''
+                    {matches.map(({ id, label: matchLabel, date: matchDate }) => {
+                      const val = roundPreds[id] || ''
                       return (
-                        <div key={i} style={{ flex: '1 1 140px' }}>
-                          <div style={{ color: '#4a5568', fontSize: 11, marginBottom: 4 }}>Partido {i + 1}</div>
+                        <div key={id} style={{ flex: '1 1 150px' }}>
+                          <div style={{ color: '#4a5568', fontSize: 11, marginBottom: 4 }}>{matchLabel} · {matchDate}</div>
                           <select value={val}
                             onChange={e => {
                               const updated = { ...predictions }
                               if (!updated['knockout']) updated['knockout'] = {}
                               if (!updated['knockout'][round]) updated['knockout'][round] = {}
-                              updated['knockout'][round][i] = e.target.value
+                              updated['knockout'][round][id] = e.target.value
                               setPredictions(updated)
                             }}
-                            style={{ width: '100%', padding: '8px 10px', background: val ? '#1a2a1a' : '#0d1117', border: `1px solid ${val ? '#00e5a044' : '#1e2535'}`, borderRadius: 10, color: val ? '#00e5a0' : '#8892a0', fontSize: 13, outline: 'none' }}>
+                            style={{ width: '100%', padding: '8px 10px', background: val ? '#0d1f0d' : '#0d1117', border: `1px solid ${val ? '#00e5a044' : '#1e2535'}`, borderRadius: 10, color: val ? '#00e5a0' : '#8892a0', fontSize: 13, outline: 'none' }}>
                             <option value="">— Ganador —</option>
                             {ALL_TEAMS.map(t => <option key={t} value={t}>{FLAG_EMOJIS[t] || ''} {t}</option>)}
                           </select>

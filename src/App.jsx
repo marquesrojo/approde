@@ -295,6 +295,41 @@ function SyncBar({ official, isSyncing }) {
   )
 }
 
+// ─── MATCH CARD ───────────────────────────────────────────────────────────────
+function MatchCard({ match, predictions, officialResults, setPred, S, showGroup = false }) {
+  const pred = predictions[match.id] || {}
+  const off = officialResults[match.id]
+  const hasOfficial = !!off
+  let predResult = null, offResult = null
+  if (pred.home !== undefined && pred.away !== undefined)
+    predResult = pred.home > pred.away ? 'H' : pred.home < pred.away ? 'A' : 'D'
+  if (off) offResult = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
+  const correct = off && predResult === offResult
+  const exact = off && pred.home === off.home && pred.away === off.away
+  return (
+    <div style={{ ...S.card, borderColor: exact ? '#00e5a044' : correct ? '#f7c94844' : '#1e2535' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ color: '#4a5568', fontSize: 11 }}>
+          {showGroup ? `Grupo ${match.group}` : `📅 ${match.date}`}
+        </span>
+        {exact && <span style={{ color: '#00e5a0', fontSize: 12, fontWeight: 700 }}>⭐ Exacto +3</span>}
+        {correct && !exact && <span style={{ color: '#f7c948', fontSize: 12, fontWeight: 700 }}>✓ Resultado +1</span>}
+        {hasOfficial && !correct && predResult !== null && <span style={{ color: '#ff6b6b', fontSize: 12 }}>✗ Sin puntos</span>}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ flex: 1, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.home} /> {match.home}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input type="number" min="0" max="20" style={S.input} value={pred.home ?? ''} onChange={e => setPred(match.id, 'home', e.target.value)} disabled={hasOfficial} placeholder="–" />
+          <span style={{ color: '#4a5568', fontWeight: 700 }}>:</span>
+          <input type="number" min="0" max="20" style={S.input} value={pred.away ?? ''} onChange={e => setPred(match.id, 'away', e.target.value)} disabled={hasOfficial} placeholder="–" />
+        </div>
+        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.away} /> {match.away}</div>
+      </div>
+      {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
+    </div>
+  )
+}
+
 // ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login')
@@ -615,9 +650,19 @@ export default function App() {
   const officialResults = official?.results || {}
   const officialChampion = official?.champion || ''
   const officialTopScorer = official?.top_scorer || ''
+  const [viewMode, setViewMode] = useState('group') // 'group' | 'date'
+
+  // Sort matches by date for date view
+  const DATE_ORDER = ['11 Jun','12 Jun','13 Jun','14 Jun','15 Jun','16 Jun','17 Jun','18 Jun','19 Jun','20 Jun','21 Jun','22 Jun','23 Jun','24 Jun','25 Jun','26 Jun','27 Jun']
+  const matchesByDate = DATE_ORDER.reduce((acc, d) => {
+    const ms = MATCHES.filter(m => m.date === d)
+    if (ms.length) acc.push({ date: d, matches: ms })
+    return acc
+  }, [])
+
   const groupMatches = MATCHES.filter(m => m.group === activeGroup)
   const myScore = calcScore(predictions, champion, topScorer, officialResults, officialChampion, officialTopScorer)
-  const completedPreds = Object.keys(predictions).length
+  const completedPreds = Object.keys(predictions).filter(k => k !== 'knockout').length
 
   if (!user) return <AuthScreen onLogin={setUser} />
 
@@ -676,9 +721,23 @@ export default function App() {
               <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 4px' }}>Fase de Grupos</h2>
               <p style={{ color: '#4a5568', fontSize: 13, margin: 0 }}>{completedPreds} / {MATCHES.length} pronosticados</p>
             </div>
-            <div style={{ height: 4, background: '#1e2535', borderRadius: 4, marginBottom: 20, overflow: 'hidden' }}>
+            <div style={{ height: 4, background: '#1e2535', borderRadius: 4, marginBottom: 16, overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#f7c948,#ff6b35)', width: `${(completedPreds / MATCHES.length) * 100}%`, transition: 'width .4s' }} />
             </div>
+
+            {/* View toggle */}
+            <div style={{ display: 'flex', background: '#0a0e1a', borderRadius: 12, padding: 4, marginBottom: 16 }}>
+              {[['group','🏟 Por Grupo'],['date','📅 Por Fecha']].map(([mode, label]) => (
+                <button key={mode} onClick={() => setViewMode(mode)} style={{
+                  flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                  background: viewMode === mode ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : 'transparent',
+                  color: viewMode === mode ? '#0a0e1a' : '#5a6070',
+                }}>{label}</button>
+              ))}
+            </div>
+
+            {/* GROUP VIEW */}
+            {viewMode === 'group' && (<>
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
               {Object.keys(GROUPS).map(g => (
                 <button key={g} onClick={() => setActiveGroup(g)} style={{
@@ -695,37 +754,18 @@ export default function App() {
                 </span>
               ))}
             </div>
-            {groupMatches.map(match => {
-              const pred = predictions[match.id] || {}
-              const off = officialResults[match.id]
-              const hasOfficial = !!off
-              let predResult = null, offResult = null
-              if (pred.home !== undefined && pred.away !== undefined)
-                predResult = pred.home > pred.away ? 'H' : pred.home < pred.away ? 'A' : 'D'
-              if (off) offResult = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
-              const correct = off && predResult === offResult
-              const exact = off && pred.home === off.home && pred.away === off.away
-              return (
-                <div key={match.id} style={{ ...S.card, borderColor: exact ? '#00e5a044' : correct ? '#f7c94844' : '#1e2535' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <span style={{ color: '#4a5568', fontSize: 11 }}>📅 {match.date}</span>
-                    {exact && <span style={{ color: '#00e5a0', fontSize: 12, fontWeight: 700 }}>⭐ Exacto +3</span>}
-                    {correct && !exact && <span style={{ color: '#f7c948', fontSize: 12, fontWeight: 700 }}>✓ Resultado +1</span>}
-                    {hasOfficial && !correct && predResult !== null && <span style={{ color: '#ff6b6b', fontSize: 12 }}>✗ Sin puntos</span>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <div style={{ flex: 1, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.home} /> {match.home}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <input type="number" min="0" max="20" style={S.input} value={pred.home ?? ''} onChange={e => setPred(match.id, 'home', e.target.value)} disabled={hasOfficial} placeholder="–" />
-                      <span style={{ color: '#4a5568', fontWeight: 700 }}>:</span>
-                      <input type="number" min="0" max="20" style={S.input} value={pred.away ?? ''} onChange={e => setPred(match.id, 'away', e.target.value)} disabled={hasOfficial} placeholder="–" />
-                    </div>
-                    <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.away} /> {match.away}</div>
-                  </div>
-                  {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
+            {groupMatches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
+            </>)}
+
+            {/* DATE VIEW */}
+            {viewMode === 'date' && matchesByDate.map(({ date, matches }) => (
+              <div key={date}>
+                <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 4, paddingBottom: 6, borderBottom: '1px solid #1e2535' }}>
+                  📅 {date}
                 </div>
-              )
-            })}
+                {matches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} showGroup />)}
+              </div>
+            ))}
           </div>
         )}
 

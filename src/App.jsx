@@ -295,17 +295,154 @@ function SyncBar({ official, isSyncing }) {
   )
 }
 
+// ─── PLAYER SEARCH ────────────────────────────────────────────────────────────
+function PlayerSearch({ value, onChange }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [searched, setSearched] = useState(false)
+  const timerRef = useState(null)
+
+  async function search(q) {
+    if (!q.trim() || q.trim().length < 2) { setResults([]); setSearched(false); return }
+    setLoading(true)
+    setSearched(true)
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 300,
+          messages: [{
+            role: 'user',
+            content: `Buscá jugadores convocados al Mundial 2026 cuyo nombre contenga "${q}". Devolvé SOLO un JSON array con hasta 8 nombres completos, sin markdown, sin texto extra. Ejemplo: ["Lionel Messi","Lautaro Martínez"]. Si no encontrás ninguno devolvé [].`
+          }]
+        }),
+      })
+      const data = await response.json()
+      const text = data.content?.find(b => b.type === 'text')?.text || '[]'
+      const clean = text.replace(/```json|```/g, '').trim()
+      const arr = JSON.parse(clean.match(/\[[\s\S]*\]/)?.[0] || '[]')
+      setResults(Array.isArray(arr) ? arr : [])
+    } catch {
+      setResults([])
+    }
+    setLoading(false)
+  }
+
+  function handleChange(e) {
+    const q = e.target.value
+    setQuery(q)
+    clearTimeout(timerRef[0])
+    timerRef[0] = setTimeout(() => search(q), 600)
+  }
+
+  return (
+    <div>
+      <div style={{ position: 'relative' }}>
+        <input
+          value={query}
+          onChange={handleChange}
+          placeholder="Buscá un jugador... ej: Messi, Mbappé"
+          style={{
+            width: '100%', padding: '12px 16px', background: '#0d1117',
+            border: '1px solid #1e2535', borderRadius: 12, color: '#fff',
+            fontSize: 14, outline: 'none', boxSizing: 'border-box',
+          }}
+        />
+        {loading && <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: '#4a5568', fontSize: 12 }}>🔍</span>}
+      </div>
+      {value && (
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ background: 'linear-gradient(90deg,#f7c948,#ff6b35)', color: '#0a0e1a', borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 700 }}>⚽ {value}</span>
+          <button onClick={() => { onChange(''); setQuery(''); setResults([]); setSearched(false) }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: 18 }}>✕</button>
+        </div>
+      )}
+      {searched && !loading && results.length === 0 && (
+        <div style={{ color: '#4a5568', fontSize: 13, marginTop: 8 }}>No se encontraron jugadores</div>
+      )}
+      {results.length > 0 && (
+        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {results.map(p => (
+            <button key={p} onClick={() => { onChange(p); setQuery(''); setResults([]) }} style={{
+              padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: value === p ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
+              color: value === p ? '#0a0e1a' : '#e2e8f0', fontSize: 13, fontWeight: 600,
+            }}>⚽ {p}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── VOICE HELPER ─────────────────────────────────────────────────────────────
+const WORDS_TO_NUM = {
+  'cero':0,'zero':0,'un':1,'uno':1,'one':1,'dos':2,'two':2,'tres':3,'three':3,
+  'cuatro':4,'four':4,'cinco':5,'five':5,'seis':6,'six':6,'siete':7,'seven':7,
+  'ocho':8,'eight':8,'nueve':9,'nine':9,'diez':10,'ten':10,'once':11,'eleven':11,
+  'doce':12,'twelve':12,'trece':13,'catorce':14,'quince':15,
+}
+function parseVoiceScore(transcript) {
+  const t = transcript.toLowerCase().trim()
+  // Try "X a Y", "X - Y", "X y Y"
+  const sep = t.match(/(\w+)\s+(?:a|al|y|-|vs)\s+(\w+)/)
+  if (sep) {
+    const h = WORDS_TO_NUM[sep[1]] ?? parseInt(sep[1])
+    const a = WORDS_TO_NUM[sep[2]] ?? parseInt(sep[2])
+    if (!isNaN(h) && !isNaN(a)) return { home: h, away: a }
+  }
+  // Try two consecutive words/numbers
+  const words = t.split(/\s+/)
+  const nums = words.map(w => WORDS_TO_NUM[w] ?? parseInt(w)).filter(n => !isNaN(n))
+  if (nums.length >= 2) return { home: nums[0], away: nums[1] }
+  return null
+}
+
 // ─── MATCH CARD ───────────────────────────────────────────────────────────────
 function MatchCard({ match, predictions, officialResults, setPred, S, showGroup = false }) {
   const pred = predictions[match.id] || {}
   const off = officialResults[match.id]
   const hasOfficial = !!off
+  const [listening, setListening] = useState(false)
+  const [voiceMsg, setVoiceMsg] = useState('')
+
   let predResult = null, offResult = null
   if (pred.home !== undefined && pred.away !== undefined)
     predResult = pred.home > pred.away ? 'H' : pred.home < pred.away ? 'A' : 'D'
   if (off) offResult = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
   const correct = off && predResult === offResult
   const exact = off && pred.home === off.home && pred.away === off.away
+
+  function startVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) { setVoiceMsg('Tu navegador no soporta voz'); setTimeout(() => setVoiceMsg(''), 2500); return }
+    const rec = new SpeechRecognition()
+    rec.lang = 'es-AR'
+    rec.interimResults = false
+    rec.maxAlternatives = 3
+    setListening(true)
+    setVoiceMsg('🎙 Escuchando...')
+    rec.onresult = (e) => {
+      const transcripts = Array.from(e.results[0]).map(r => r.transcript)
+      let parsed = null
+      for (const t of transcripts) { parsed = parseVoiceScore(t); if (parsed) break }
+      if (parsed) {
+        setPred(match.id, 'home', String(parsed.home))
+        setPred(match.id, 'away', String(parsed.away))
+        setVoiceMsg(`✓ ${parsed.home} - ${parsed.away}`)
+      } else {
+        setVoiceMsg(`No entendí "${transcripts[0]}"`)
+      }
+      setTimeout(() => setVoiceMsg(''), 2500)
+      setListening(false)
+    }
+    rec.onerror = () => { setVoiceMsg('Error de micrófono'); setListening(false); setTimeout(() => setVoiceMsg(''), 2500) }
+    rec.onend = () => setListening(false)
+    rec.start()
+  }
+
   return (
     <div style={{ ...S.card, borderColor: exact ? '#00e5a044' : correct ? '#f7c94844' : '#1e2535' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -325,6 +462,22 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
         </div>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.away} /> {match.away}</div>
       </div>
+      {!hasOfficial && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+          <button onClick={startVoice} disabled={listening} style={{
+            background: listening ? '#6366f1' : '#1e2535',
+            border: `1px solid ${listening ? '#6366f1' : '#2a3040'}`,
+            borderRadius: 20, padding: '5px 14px', cursor: 'pointer',
+            color: listening ? '#fff' : '#8892a0', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 6,
+            animation: listening ? 'pulse 1s infinite' : 'none',
+          }}>
+            <span style={{ fontSize: 14 }}>{listening ? '🔴' : '🎙'}</span>
+            {listening ? 'Escuchando...' : 'Dictar marcador'}
+          </button>
+          {voiceMsg && <span style={{ fontSize: 12, color: voiceMsg.startsWith('✓') ? '#00e5a0' : '#ff6b6b' }}>{voiceMsg}</span>}
+        </div>
+      )}
       {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
     </div>
   )
@@ -516,15 +669,7 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
               ))}
             </div>
             <div style={{ fontWeight: 700, color: '#fff', marginBottom: 10 }}>Goleador oficial</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {TOP_SCORERS.map(p => (
-                <button key={p} onClick={() => setLocalTopScorer(p === localTopScorer ? '' : p)} style={{
-                  padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                  background: localTopScorer === p ? '#f7c948' : '#1e2535',
-                  color: localTopScorer === p ? '#0a0e1a' : '#8892a0',
-                }}>{p}</button>
-              ))}
-            </div>
+            <PlayerSearch value={localTopScorer} onChange={setLocalTopScorer} />
           </div>
 
           <button onClick={handleSave} disabled={saving} style={{
@@ -795,15 +940,7 @@ export default function App() {
                 <span style={{ fontSize: 28 }}>👟</span>
                 <div><div style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Goleador del Mundial</div><div style={{ color: '#4a5568', fontSize: 12 }}>+3 puntos si acertás</div></div>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {TOP_SCORERS.map(p => (
-                  <button key={p} onClick={() => setTopScorer(p)} style={{
-                    padding: '7px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                    background: topScorer === p ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
-                    color: topScorer === p ? '#0a0e1a' : '#8892a0',
-                  }}>{p}</button>
-                ))}
-              </div>
+              <PlayerSearch value={topScorer} onChange={setTopScorer} />
               {topScorer && <div style={{ marginTop: 12, color: '#f7c948', fontSize: 14, fontWeight: 700 }}>Tu goleador: ⚽ {topScorer}</div>}
               {officialTopScorer && <div style={{ marginTop: 6, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#00e5a0' }}>{officialTopScorer}</strong></div>}
             </div>

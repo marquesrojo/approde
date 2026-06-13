@@ -1555,6 +1555,113 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
+// ─── KNOCKOUT SECTION ─────────────────────────────────────────────────────────
+function KnockoutSection({ predictions, setPredictions }) {
+  const ROUNDS = [
+    {
+      round: 'R32', label: '16avos de Final', date: '28 Jun – 3 Jul', icon: '⚡',
+      matches: [
+        { id: 'p73',  label: '2°A vs 2°B',           date: '28 Jun' },
+        { id: 'p74',  label: '1°E vs 3°(A/B/C/D/F)', date: '29 Jun' },
+        { id: 'p75',  label: '1°F vs 2°C',           date: '29 Jun' },
+        { id: 'p76',  label: '1°C vs 2°F',           date: '29 Jun' },
+        { id: 'p77',  label: '1°I vs 3°(C/D/F/G/H)', date: '30 Jun' },
+        { id: 'p78',  label: '2°E vs 2°I',           date: '30 Jun' },
+        { id: 'p79',  label: '1°A vs 3°(C/E/F/H/I)', date: '30 Jun' },
+        { id: 'p80',  label: '1°L vs 3°(E/H/I/J/K)', date: '1 Jul'  },
+        { id: 'p81',  label: '1°D vs 3°(B/E/F/I/J)', date: '1 Jul'  },
+        { id: 'p82',  label: '1°G vs 3°(A/E/H/I/J)', date: '1 Jul'  },
+        { id: 'p83',  label: '2°K vs 2°L',           date: '2 Jul'  },
+        { id: 'p84',  label: '1°H vs 2°J',           date: '2 Jul'  },
+        { id: 'p85',  label: '1°B vs 3°(E/F/G/I/J)', date: '2 Jul'  },
+        { id: 'p86',  label: '1°J vs 2°H',           date: '3 Jul'  },
+        { id: 'p87',  label: '1°K vs 3°(D/E/I/J/L)', date: '3 Jul'  },
+        { id: 'p88',  label: '2°D vs 2°G',           date: '3 Jul'  },
+      ],
+    },
+    {
+      round: 'R16', label: 'Octavos de Final', date: '4 – 7 Jul', icon: '🔥',
+      matches: [
+        { id: 'p89', label: 'W73 vs W75', date: '4 Jul' },
+        { id: 'p90', label: 'W74 vs W77', date: '4 Jul' },
+        { id: 'p91', label: 'W76 vs W78', date: '5 Jul' },
+        { id: 'p92', label: 'W79 vs W80', date: '5 Jul' },
+        { id: 'p93', label: 'W83 vs W84', date: '6 Jul' },
+        { id: 'p94', label: 'W81 vs W82', date: '6 Jul' },
+        { id: 'p95', label: 'W86 vs W88', date: '7 Jul' },
+        { id: 'p96', label: 'W85 vs W87', date: '7 Jul' },
+      ],
+    },
+    {
+      round: 'QF', label: 'Cuartos de Final', date: '9 – 11 Jul', icon: '💥',
+      matches: [
+        { id: 'p97',  label: 'W89 vs W90', date: '9 Jul'  },
+        { id: 'p98',  label: 'W93 vs W94', date: '10 Jul' },
+        { id: 'p99',  label: 'W91 vs W92', date: '11 Jul' },
+        { id: 'p100', label: 'W95 vs W96', date: '11 Jul' },
+      ],
+    },
+    {
+      round: 'SF', label: 'Semifinales', date: '14 – 15 Jul', icon: '🌟',
+      matches: [
+        { id: 'p101', label: 'W97 vs W98',   date: '14 Jul' },
+        { id: 'p102', label: 'W99 vs W100',  date: '15 Jul' },
+      ],
+    },
+    {
+      round: 'F', label: '🏆 Final', date: '19 Jul · MetLife Stadium', icon: '🏆',
+      matches: [{ id: 'p104', label: 'W101 vs W102', date: '19 Jul' }],
+    },
+  ]
+
+  return (
+    <div>
+      {ROUNDS.map(({ round, label, date, icon, matches }) => {
+        const roundPreds = (predictions['knockout'] || {})[round] || {}
+        const filled = Object.values(roundPreds).filter(Boolean).length
+        return (
+          <div key={round} style={{ background: '#111827', border: '1px solid #1e2535', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>{icon}</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: '#fff' }}>{label}</div>
+                  <div style={{ color: '#4a5568', fontSize: 12 }}>{date}</div>
+                </div>
+              </div>
+              <div style={{ color: filled === matches.length ? '#00e5a0' : '#4a5568', fontSize: 12, fontWeight: 700 }}>
+                {filled}/{matches.length}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {matches.map(({ id, label: ml, date: md }) => {
+                const val = roundPreds[id] || ''
+                return (
+                  <div key={id}>
+                    <div style={{ color: '#4a5568', fontSize: 11, marginBottom: 4 }}>{ml} · {md}</div>
+                    <select value={val}
+                      onChange={e => {
+                        const updated = { ...predictions }
+                        if (!updated['knockout']) updated['knockout'] = {}
+                        if (!updated['knockout'][round]) updated['knockout'][round] = {}
+                        updated['knockout'][round][id] = e.target.value
+                        setPredictions(updated)
+                      }}
+                      style={{ width: '100%', padding: '10px 14px', background: val ? '#0d1f0d' : '#0d1117', border: `1px solid ${val ? '#00e5a044' : '#1e2535'}`, borderRadius: 10, color: val ? '#00e5a0' : '#8892a0', fontSize: 14, outline: 'none' }}>
+                      <option value="">— Ganador —</option>
+                      {ALL_TEAMS.map(t => <option key={t} value={t}>{FLAG_EMOJIS[t] || ''} {t}</option>)}
+                    </select>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function App() {
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('matches')
@@ -1743,7 +1850,7 @@ export default function App() {
   const officialResults = official?.results || {}
   const officialChampion = official?.champion || ''
   const officialTopScorer = official?.top_scorer || ''
-  const [viewMode, setViewMode] = useState('group') // 'group' | 'date'
+  const [viewMode, setViewMode] = useState('date') // 'group' | 'date'
 
   // Sort matches by date for date view
   const DATE_ORDER = ['11 Jun','12 Jun','13 Jun','14 Jun','15 Jun','16 Jun','17 Jun','18 Jun','19 Jun','20 Jun','21 Jun','22 Jun','23 Jun','24 Jun','25 Jun','26 Jun','27 Jun']
@@ -1893,9 +2000,9 @@ export default function App() {
         {/* MATCHES */}
         {tab === 'matches' && (
           <div>
-            <div style={{ marginBottom: 20 }}>
-              <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 4px' }}>Fase de Grupos</h2>
-              <p style={{ color: '#4a5568', fontSize: 13, margin: 0 }}>{completedPreds} / {MATCHES.length} pronosticados</p>
+            <div style={{ marginBottom: 16 }}>
+              <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 4px' }}>Partidos</h2>
+              <p style={{ color: '#4a5568', fontSize: 13, margin: 0 }}>{completedPreds} / {MATCHES.length} grupos pronosticados</p>
             </div>
             <div style={{ height: 4, background: '#1e2535', borderRadius: 4, marginBottom: 16, overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#f7c948,#ff6b35)', width: `${(completedPreds / MATCHES.length) * 100}%`, transition: 'width .4s' }} />
@@ -1914,38 +2021,53 @@ export default function App() {
 
             {/* GROUP VIEW */}
             {viewMode === 'group' && (<>
-            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
-              {Object.keys(GROUPS).map(g => (
-                <button key={g} onClick={() => setActiveGroup(g)} style={{
-                  padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0,
-                  background: activeGroup === g ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
-                  color: activeGroup === g ? '#0a0e1a' : '#8892a0',
-                }}>Grupo {g}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              {GROUPS[activeGroup]?.map(t => (
-                <span key={t} style={{ background: '#1e2535', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#8892a0' }}>
-                  <Flag team={t} size={13} /> {t}
-                </span>
-              ))}
-            </div>
-            {groupMatches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
+                {Object.keys(GROUPS).map(g => (
+                  <button key={g} onClick={() => setActiveGroup(g)} style={{
+                    padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0,
+                    background: activeGroup === g ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
+                    color: activeGroup === g ? '#0a0e1a' : '#8892a0',
+                  }}>Grupo {g}</button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                {GROUPS[activeGroup]?.map(t => (
+                  <span key={t} style={{ background: '#1e2535', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#8892a0' }}>
+                    <Flag team={t} size={13} /> {t}
+                  </span>
+                ))}
+              </div>
+              {groupMatches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
+
+              {/* Knockout section in group view */}
+              <div style={{ marginTop: 24, marginBottom: 16, paddingTop: 20, borderTop: '2px solid #1e2535' }}>
+                <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, margin: '0 0 4px' }}>⚡ Fase Eliminatoria</h3>
+                <p style={{ color: '#4a5568', fontSize: 12, margin: '0 0 16px' }}>Pronosticá el ganador de cada partido</p>
+                <KnockoutSection predictions={predictions} setPredictions={setPredictions} S={S} />
+              </div>
             </>)}
 
-            {/* DATE VIEW */}
-            {viewMode === 'date' && matchesByDate.map(({ date, matches }) => (
-              <div key={date}>
-                <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 4, paddingBottom: 6, borderBottom: '1px solid #1e2535' }}>
-                  📅 {date}
+            {/* DATE VIEW — grupos + eliminatorias cronológico */}
+            {viewMode === 'date' && (<>
+              {matchesByDate.map(({ date, matches }) => (
+                <div key={date}>
+                  <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 4, paddingBottom: 6, borderBottom: '1px solid #1e2535' }}>
+                    📅 {date}
+                  </div>
+                  {matches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} showGroup />)}
                 </div>
-                {matches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} showGroup />)}
+              ))}
+
+              {/* Eliminatorias a continuación */}
+              <div style={{ marginTop: 8 }}>
+                <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 4, paddingBottom: 6, borderBottom: '1px solid #1e2535' }}>
+                  ⚡ Fase Eliminatoria — 28 Jun en adelante
+                </div>
+                <KnockoutSection predictions={predictions} setPredictions={setPredictions} S={S} />
               </div>
-            ))}
+            </>)}
           </div>
         )}
-
-        {/* SPECIAL */}
         {tab === 'special' && (
           <div>
             <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 20px' }}>Pronósticos Especiales</h2>
@@ -1991,112 +2113,6 @@ export default function App() {
         )}
 
         {/* KNOCKOUT */}
-        {tab === 'knockout' && (
-          <div>
-            <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 6px' }}>Fase Eliminatoria</h2>
-            <p style={{ color: '#4a5568', fontSize: 13, margin: '0 0 20px' }}>Pronosticá el ganador de cada partido</p>
-
-            {[
-              {
-                round: 'R32', label: '16avos de Final', date: '28 Jun – 3 Jul', icon: '⚡',
-                matches: [
-                  { id: 'p73',  label: '2°A vs 2°B',              date: '28 Jun' },
-                  { id: 'p74',  label: '1°E vs 3°(A/B/C/D/F)',    date: '29 Jun' },
-                  { id: 'p75',  label: '1°F vs 2°C',              date: '29 Jun' },
-                  { id: 'p76',  label: '1°C vs 2°F',              date: '29 Jun' },
-                  { id: 'p77',  label: '1°I vs 3°(C/D/F/G/H)',    date: '30 Jun' },
-                  { id: 'p78',  label: '2°E vs 2°I',              date: '30 Jun' },
-                  { id: 'p79',  label: '1°A vs 3°(C/E/F/H/I)',    date: '30 Jun' },
-                  { id: 'p80',  label: '1°L vs 3°(E/H/I/J/K)',    date: '1 Jul'  },
-                  { id: 'p81',  label: '1°D vs 3°(B/E/F/I/J)',    date: '1 Jul'  },
-                  { id: 'p82',  label: '1°G vs 3°(A/E/H/I/J)',    date: '1 Jul'  },
-                  { id: 'p83',  label: '2°K vs 2°L',              date: '2 Jul'  },
-                  { id: 'p84',  label: '1°H vs 2°J',              date: '2 Jul'  },
-                  { id: 'p85',  label: '1°B vs 3°(E/F/G/I/J)',    date: '2 Jul'  },
-                  { id: 'p86',  label: '1°J vs 2°H',              date: '3 Jul'  },
-                  { id: 'p87',  label: '1°K vs 3°(D/E/I/J/L)',    date: '3 Jul'  },
-                  { id: 'p88',  label: '2°D vs 2°G',              date: '3 Jul'  },
-                ],
-              },
-              {
-                round: 'R16', label: 'Octavos de Final', date: '4 – 7 Jul', icon: '🔥',
-                matches: [
-                  { id: 'p89', label: 'W(p74) vs W(p77)',  date: '4 Jul' },
-                  { id: 'p90', label: 'W(p73) vs W(p75)',  date: '4 Jul' },
-                  { id: 'p91', label: 'W(p76) vs W(p78)',  date: '5 Jul' },
-                  { id: 'p92', label: 'W(p79) vs W(p80)',  date: '5 Jul' },
-                  { id: 'p93', label: 'W(p83) vs W(p84)',  date: '6 Jul' },
-                  { id: 'p94', label: 'W(p81) vs W(p82)',  date: '6 Jul' },
-                  { id: 'p95', label: 'W(p86) vs W(p88)',  date: '7 Jul' },
-                  { id: 'p96', label: 'W(p85) vs W(p87)',  date: '7 Jul' },
-                ],
-              },
-              {
-                round: 'QF', label: 'Cuartos de Final', date: '9 – 11 Jul', icon: '💥',
-                matches: [
-                  { id: 'p97',  label: 'W(p89) vs W(p90)', date: '9 Jul'  },
-                  { id: 'p98',  label: 'W(p93) vs W(p94)', date: '10 Jul' },
-                  { id: 'p99',  label: 'W(p91) vs W(p92)', date: '11 Jul' },
-                  { id: 'p100', label: 'W(p95) vs W(p96)', date: '11 Jul' },
-                ],
-              },
-              {
-                round: 'SF', label: 'Semifinales', date: '14 – 15 Jul', icon: '🌟',
-                matches: [
-                  { id: 'p101', label: 'W(p97) vs W(p98)',   date: '14 Jul' },
-                  { id: 'p102', label: 'W(p99) vs W(p100)',  date: '15 Jul' },
-                ],
-              },
-              {
-                round: 'F', label: 'Final', date: '19 Jul · MetLife Stadium, New York', icon: '🏆',
-                matches: [
-                  { id: 'p104', label: 'W(p101) vs W(p102)', date: '19 Jul' },
-                ],
-              },
-            ].map(({ round, label, date, icon, matches }) => {
-              const roundPreds = (predictions['knockout'] || {})[round] || {}
-              const filled = Object.values(roundPreds).filter(Boolean).length
-              return (
-                <div key={round} style={{ ...S.card, marginBottom: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 24 }}>{icon}</span>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: '#fff' }}>{label}</div>
-                        <div style={{ color: '#4a5568', fontSize: 12 }}>{date}</div>
-                      </div>
-                    </div>
-                    <div style={{ color: filled === matches.length ? '#00e5a0' : '#4a5568', fontSize: 12, fontWeight: 700 }}>
-                      {filled}/{matches.length}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {matches.map(({ id, label: matchLabel, date: matchDate }) => {
-                      const val = roundPreds[id] || ''
-                      return (
-                        <div key={id} style={{ flex: '1 1 150px' }}>
-                          <div style={{ color: '#4a5568', fontSize: 11, marginBottom: 4 }}>{matchLabel} · {matchDate}</div>
-                          <select value={val}
-                            onChange={e => {
-                              const updated = { ...predictions }
-                              if (!updated['knockout']) updated['knockout'] = {}
-                              if (!updated['knockout'][round]) updated['knockout'][round] = {}
-                              updated['knockout'][round][id] = e.target.value
-                              setPredictions(updated)
-                            }}
-                            style={{ width: '100%', padding: '8px 10px', background: val ? '#0d1f0d' : '#0d1117', border: `1px solid ${val ? '#00e5a044' : '#1e2535'}`, borderRadius: 10, color: val ? '#00e5a0' : '#8892a0', fontSize: 13, outline: 'none' }}>
-                            <option value="">— Ganador —</option>
-                            {ALL_TEAMS.map(t => <option key={t} value={t}>{FLAG_EMOJIS[t] || ''} {t}</option>)}
-                          </select>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
 
         {/* LEADERBOARD */}
         {tab === 'leaderboard' && (
@@ -2148,7 +2164,7 @@ export default function App() {
       </div>
 
       {/* Save button */}
-      {(tab === 'matches' || tab === 'special' || tab === 'knockout') && (
+      {(tab === 'matches' || tab === 'special') && (
         <button onClick={saveAll} disabled={saving} style={{
           position: 'fixed', bottom: 70, right: 20, zIndex: 99,
           background: saved ? '#00e5a0' : 'linear-gradient(90deg,#f7c948,#ff6b35)',
@@ -2161,9 +2177,8 @@ export default function App() {
       {/* Bottom nav */}
       <div style={S.nav}>
         {[
-          { id: 'matches', icon: '📋', label: 'Grupos' },
-          { id: 'knockout', icon: '⚡', label: 'Eliminatorias' },
-          { id: 'special', icon: '🏆', label: 'Especiales' },
+          { id: 'matches',     icon: '📋', label: 'Partidos'   },
+          { id: 'special',     icon: '🏆', label: 'Especiales' },
           { id: 'leaderboard', icon: '📊', label: 'Posiciones' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={S.navBtn(tab === t.id)}>

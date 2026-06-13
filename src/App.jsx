@@ -878,6 +878,106 @@ function AuthScreen({ onLogin }) {
   )
 }
 
+// ─── CHALLENGES INBOX ─────────────────────────────────────────────────────────
+function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClose }) {
+  const pending = challenges.filter(c => c.to_alias === myAlias && c.status === 'pending')
+  const active  = challenges.filter(c => c.status === 'accepted' && !c.winner_alias)
+  const resolved = challenges.filter(c => c.status === 'resolved')
+
+  function matchName(matchId) {
+    const m = MATCHES.find(m => m.id === parseInt(matchId))
+    return m ? `${FLAG_EMOJIS[m.home] || ''} ${m.home} vs ${m.away} ${FLAG_EMOJIS[m.away] || ''}` : `Partido #${matchId}`
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 300, overflowY: 'auto', padding: '20px 16px' }}>
+      <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 520, margin: '0 auto', border: '1px solid #6366f144' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: '#fff' }}>⚔️ Mis Desafíos</div>
+          <button onClick={onClose} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ padding: 20 }}>
+
+          {/* Pending */}
+          {pending.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
+                🔔 Pendientes ({pending.length})
+              </div>
+              {pending.map(ch => (
+                <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 16, marginBottom: 10, border: '1px solid #f7c94833' }}>
+                  <div style={{ fontWeight: 700, color: '#fff', marginBottom: 4 }}>{ch.from_alias} te desafió</div>
+                  <div style={{ color: '#8892a0', fontSize: 13, marginBottom: 12 }}>{matchName(ch.match_id)}</div>
+                  <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 12 }}>El ganador suma <strong style={{ color: '#f7c948' }}>+1 punto bonus</strong></div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => onAccept(ch.id, 'accept')} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700 }}>✓ Aceptar</button>
+                    <button onClick={() => onAccept(ch.id, 'reject')} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #1e2535', cursor: 'pointer', background: 'none', color: '#4a5568', fontWeight: 700 }}>✗ Rechazar</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Active */}
+          {active.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: '#00e5a0', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>⚡ En curso ({active.length})</div>
+              {active.map(ch => {
+                const rival = ch.from_alias === myAlias ? ch.to_alias : ch.from_alias
+                const off = officialResults[ch.match_id]
+                return (
+                  <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid #00e5a022' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#fff', fontSize: 13 }}>vs {rival}</div>
+                        <div style={{ color: '#4a5568', fontSize: 12 }}>{matchName(ch.match_id)}</div>
+                      </div>
+                      {off ? <span style={{ color: '#f7c948', fontSize: 12 }}>⏳ Calculando...</span>
+                           : <span style={{ color: '#00e5a0', fontSize: 12 }}>🔴 En juego</span>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Resolved */}
+          {resolved.length > 0 && (
+            <div>
+              <div style={{ color: '#4a5568', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>Historial</div>
+              {resolved.map(ch => {
+                const rival = ch.from_alias === myAlias ? ch.to_alias : ch.from_alias
+                const iWon = ch.winner_alias === myAlias
+                const tie = ch.winner_alias === 'tie'
+                return (
+                  <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 8, border: `1px solid ${iWon ? '#00e5a033' : tie ? '#1e2535' : '#ff6b6b22'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#fff', fontSize: 13 }}>vs {rival}</div>
+                        <div style={{ color: '#4a5568', fontSize: 12 }}>{matchName(ch.match_id)}</div>
+                      </div>
+                      <span style={{ fontWeight: 800, fontSize: 14, color: iWon ? '#00e5a0' : tie ? '#4a5568' : '#ff6b6b' }}>
+                        {iWon ? '🏆 +1 pts' : tie ? '🤝 Empate' : '😔 Perdiste'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {challenges.length === 0 && (
+            <div style={{ textAlign: 'center', color: '#4a5568', padding: 30 }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>⚔️</div>
+              Sin desafíos todavía. Desafiá a alguien desde el ranking.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
   const [localResults, setLocalResults] = useState({ ...(official?.results || {}) })
@@ -1012,6 +1112,8 @@ export default function App() {
   const [shareMatch, setShareMatch] = useState(null)
   const [viewingProfile, setViewingProfile] = useState(null)
   const [challengingAlias, setChallengingAlias] = useState(null)
+  const [challenges, setChallenges] = useState([])
+  const [showChallenges, setShowChallenges] = useState(false)
 
   // Load official results on mount + auto-sync
   useEffect(() => {
@@ -1021,10 +1123,58 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (user) { setPredictions(user.predictions || {}); setChampion(user.champion || ''); setTopScorer(user.top_scorer || '') }
+    if (user) {
+      setPredictions(user.predictions || {})
+      setChampion(user.champion || '')
+      setTopScorer(user.top_scorer || '')
+      loadChallenges(user.alias)
+    }
   }, [user])
 
   useEffect(() => { if (tab === 'leaderboard') loadLeaderboard() }, [tab, official])
+
+  async function loadChallenges(alias) {
+    try {
+      const data = await db.getChallenges(alias)
+      setChallenges(data)
+      // Auto-resolve challenges with official results
+      for (const ch of data) {
+        if (ch.status === 'accepted' && !ch.winner_alias) {
+          const off = official?.results?.[ch.match_id]
+          if (!off) continue
+          // Get both users' predictions
+          const fromUser = await db.getUserProfile(ch.from_alias)
+          const toUser = await db.getUserProfile(ch.to_alias)
+          const fromPred = fromUser?.predictions?.[ch.match_id]
+          const toPred = toUser?.predictions?.[ch.match_id]
+          if (!fromPred || !toPred) continue
+          const offRes = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
+          const fromRes = fromPred.home > fromPred.away ? 'H' : fromPred.home < fromPred.away ? 'A' : 'D'
+          const toRes = toPred.home > toPred.away ? 'H' : toPred.home < toPred.away ? 'A' : 'D'
+          const fromCorrect = fromRes === offRes
+          const toCorrect = toRes === offRes
+          // Exact match beats result match
+          const fromExact = fromPred.home === off.home && fromPred.away === off.away
+          const toExact = toPred.home === off.home && toPred.away === off.away
+          let winner = ''
+          if (fromExact && !toExact) winner = ch.from_alias
+          else if (toExact && !fromExact) winner = ch.to_alias
+          else if (fromCorrect && !toCorrect) winner = ch.from_alias
+          else if (toCorrect && !fromCorrect) winner = ch.to_alias
+          // tie = no bonus
+          if (winner) {
+            await supabase.from('challenges').update({ winner_alias: winner, status: 'resolved' }).eq('id', ch.id)
+            await db.addBonusPoint(winner)
+          } else if (fromCorrect && toCorrect) {
+            await supabase.from('challenges').update({ winner_alias: 'tie', status: 'resolved' }).eq('id', ch.id)
+          }
+        }
+      }
+      // Reload after resolving
+      const fresh = await db.getChallenges(alias)
+      setChallenges(fresh)
+    } catch (e) { console.error('Error cargando desafíos', e) }
+  }
 
   async function loadOfficial() {
     try { const data = await db.getOfficialResults(); setOfficial(data) } catch (e) { console.error('Error cargando resultados oficiales', e) }
@@ -1164,6 +1314,19 @@ export default function App() {
           onChallenge={(alias) => { setViewingProfile(null); setChallengingAlias(alias) }}
         />
       )}
+      {showChallenges && (
+        <ChallengesInbox
+          challenges={challenges}
+          myAlias={user.alias}
+          officialResults={officialResults}
+          onAccept={async (id, action) => {
+            if (action === 'accept') await db.acceptChallenge(id)
+            else await supabase.from('challenges').update({ status: 'rejected' }).eq('id', id)
+            await loadChallenges(user.alias)
+          }}
+          onClose={() => setShowChallenges(false)}
+        />
+      )}
       {challengingAlias && (
         <ChallengeModal
           myAlias={user.alias}
@@ -1206,6 +1369,20 @@ export default function App() {
       </div>
 
       <SyncBar official={official} isSyncing={isSyncing} />
+
+      {/* Challenges banner */}
+      {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 0 && (
+        <div onClick={() => setShowChallenges(true)} style={{
+          background: 'linear-gradient(90deg,#6366f122,#8b5cf622)', borderBottom: '1px solid #6366f144',
+          padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer',
+        }}>
+          <span style={{ color: '#a5b4fc', fontSize: 13, fontWeight: 600 }}>
+            ⚔️ Tenés {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length} desafío{challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 1 ? 's' : ''} pendiente{challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 1 ? 's' : ''}
+          </span>
+          <span style={{ color: '#6366f1', fontSize: 13, fontWeight: 700 }}>Ver →</span>
+        </div>
+      )}
 
       {/* Content */}
       <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
@@ -1479,11 +1656,25 @@ export default function App() {
 
       {/* Bottom nav */}
       <div style={S.nav}>
-        {[{ id: 'matches', icon: '📋', label: 'Grupos' }, { id: 'knockout', icon: '⚡', label: 'Eliminatorias' }, { id: 'special', icon: '🏆', label: 'Especiales' }, { id: 'leaderboard', icon: '📊', label: 'Posiciones' }].map(t => (
+        {[
+          { id: 'matches', icon: '📋', label: 'Grupos' },
+          { id: 'knockout', icon: '⚡', label: 'Eliminatorias' },
+          { id: 'special', icon: '🏆', label: 'Especiales' },
+          { id: 'leaderboard', icon: '📊', label: 'Posiciones' },
+        ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={S.navBtn(tab === t.id)}>
             <span style={{ fontSize: 18 }}>{t.icon}</span>{t.label}
           </button>
         ))}
+        <button onClick={() => setShowChallenges(true)} style={{ ...S.navBtn(false), position: 'relative' }}>
+          <span style={{ fontSize: 18 }}>⚔️</span>
+          Desafíos
+          {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 0 && (
+            <span style={{ position: 'absolute', top: 8, right: '50%', transform: 'translateX(8px)', background: '#ff6b35', borderRadius: '50%', width: 16, height: 16, fontSize: 10, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length}
+            </span>
+          )}
+        </button>
       </div>
     </div>
   )

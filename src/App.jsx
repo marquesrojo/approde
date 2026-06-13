@@ -880,8 +880,9 @@ function AuthScreen({ onLogin }) {
 
 // ─── CHALLENGES INBOX ─────────────────────────────────────────────────────────
 function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClose }) {
-  const pending = challenges.filter(c => c.to_alias === myAlias && c.status === 'pending')
-  const active  = challenges.filter(c => c.status === 'accepted' && !c.winner_alias)
+  const pending  = challenges.filter(c => c.to_alias === myAlias && c.status === 'pending')
+  const sent     = challenges.filter(c => c.from_alias === myAlias && c.status === 'pending')
+  const active   = challenges.filter(c => c.status === 'accepted')
   const resolved = challenges.filter(c => c.status === 'resolved')
 
   function matchName(matchId) {
@@ -897,6 +898,26 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
           <button onClick={onClose} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>✕</button>
         </div>
         <div style={{ padding: 20 }}>
+
+          {/* Sent */}
+          {sent.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: '#8892a0', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
+                📤 Enviados ({sent.length})
+              </div>
+              {sent.map(ch => (
+                <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid #1e2535' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#fff', fontSize: 13 }}>Desafiaste a {ch.to_alias}</div>
+                      <div style={{ color: '#4a5568', fontSize: 12, marginTop: 2 }}>{matchName(ch.match_id)}</div>
+                    </div>
+                    <span style={{ background: '#f7c94822', color: '#f7c948', borderRadius: 10, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>⏳ Esperando</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Pending */}
           {pending.length > 0 && (
@@ -971,8 +992,7 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
               <div style={{ fontSize: 40, marginBottom: 10 }}>⚔️</div>
               Sin desafíos todavía. Desafiá a alguien desde el ranking.
             </div>
-          )}
-        </div>
+          )}        </div>
       </div>
     </div>
   )

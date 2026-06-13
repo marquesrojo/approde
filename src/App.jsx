@@ -190,9 +190,9 @@ Respondé ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
 }
 Si no hay partidos jugados: {"results": {}, "champion": "", "topScorer": "", "source": "sin datos", "timestamp": ""}`
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+    headers: { 'Content-Type': 'application/json',  },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 1000,
@@ -221,9 +221,9 @@ async function fetchRecentResultsFromAI() {
   if (recentMatches.length === 0) return null
 
   const matchList = recentMatches.map(m => `ID ${m.id}: ${m.home} vs ${m.away}`).join('\n')
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+    headers: { 'Content-Type': 'application/json',  },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 400,
@@ -1115,7 +1115,7 @@ function PlayerSearch({ value, onChange }) {
     setLoading(true)
     setSearched(true)
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1226,9 +1226,9 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
     setAiLoading(true)
     setAiSuggestion(null)
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+        headers: { 'Content-Type': 'application/json',  },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 300,

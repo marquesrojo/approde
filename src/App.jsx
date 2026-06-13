@@ -407,14 +407,22 @@ function ShareModal({ match, pred, myScore, alias, official, onClose }) {
         </div>
 
         {/* Share buttons */}
-        <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
+        <button onClick={async () => {
+          if (navigator.share) {
+            try {
+              await navigator.share({ text: whatsappText })
+            } catch {}
+          } else {
+            window.open(whatsappUrl, '_blank')
+          }
+        }} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           width: '100%', padding: '15px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
-          background: '#25D366', color: '#fff', fontWeight: 800, fontSize: 15,
-          textDecoration: 'none', marginBottom: 10, boxSizing: 'border-box',
+          background: 'linear-gradient(90deg,#f7c948,#ff6b35)', color: '#0a0e1a',
+          fontWeight: 800, fontSize: 15, marginBottom: 10, boxSizing: 'border-box',
         }}>
-          <span style={{ fontSize: 20 }}>💬</span> Compartir por WhatsApp
-        </a>
+          <span style={{ fontSize: 20 }}>📤</span> Compartir
+        </button>
 
         <button onClick={copyLink} style={{
           width: '100%', padding: '13px 0', borderRadius: 12, border: '1px solid #1e2535',

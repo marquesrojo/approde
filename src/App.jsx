@@ -143,19 +143,29 @@ const FLAG_EMOJIS = {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function calcScore(predictions = {}, champion, topScorer, officialResults = {}, officialChampion = '', officialTopScorer = '', bonusPoints = 0) {
-  let pts = 0
+  // Calculate points per match
+  const matchPoints = []
   Object.entries(officialResults).forEach(([id, official]) => {
     const pred = predictions[id]
     if (!pred || pred.home === undefined || pred.away === undefined) return
+    let pts = 0
     const offRes  = official.home > official.away ? 'H' : official.home < official.away ? 'A' : 'D'
     const predRes = pred.home    > pred.away      ? 'H' : pred.home    < pred.away      ? 'A' : 'D'
     if (predRes === offRes) pts += 1
     if (pred.home === official.home && pred.away === official.away) pts += 3
+    matchPoints.push(pts)
   })
-  if (champion   && officialChampion  && champion   === officialChampion)  pts += 5
-  if (topScorer  && officialTopScorer && topScorer  === officialTopScorer) pts += 3
-  pts += (bonusPoints || 0)
-  return pts
+
+  // Take top 20 match scores
+  matchPoints.sort((a, b) => b - a)
+  const top20 = matchPoints.slice(0, 20)
+  let total = top20.reduce((sum, p) => sum + p, 0)
+
+  // Special predictions (always count)
+  if (champion  && officialChampion  && champion  === officialChampion)  total += 5
+  if (topScorer && officialTopScorer && topScorer === officialTopScorer) total += 3
+  total += (bonusPoints || 0)
+  return total
 }
 
 async function fetchResultsFromAI() {
@@ -342,87 +352,81 @@ function SyncBar({ official, isSyncing }) {
 }
 
 // ─── SHARE CARD ───────────────────────────────────────────────────────────────
-function generateShareImage(match, pred, myScore, alias, official) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 1080; canvas.height = 1080
-  const ctx = canvas.getContext('2d')
-
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, 1080, 1080)
-  bg.addColorStop(0, '#0a0e1a'); bg.addColorStop(1, '#0d1b2e')
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, 1080, 1080)
-
-  // Orange accent bar
-  const bar = ctx.createLinearGradient(0, 0, 1080, 0)
-  bar.addColorStop(0, '#f7c948'); bar.addColorStop(1, '#ff6b35')
-  ctx.fillStyle = bar; ctx.fillRect(0, 0, 1080, 8)
-
-  // APProde title
-  ctx.fillStyle = '#f7c948'; ctx.font = 'bold 52px Arial'
-  ctx.fillText('APProde ⚽', 80, 120)
-  ctx.fillStyle = '#4a5568'; ctx.font = '32px Arial'
-  ctx.fillText('Mundial 2026', 80, 165)
-
-  // Match
-  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 72px Arial'
-  ctx.textAlign = 'center'
-  const homeFlag = FLAG_EMOJIS[match.home] || ''
-  const awayFlag = FLAG_EMOJIS[match.away] || ''
-  ctx.fillText(`${homeFlag} ${match.home}`, 540, 340)
-  ctx.fillStyle = '#4a5568'; ctx.font = 'bold 48px Arial'
-  ctx.fillText('vs', 540, 420)
-  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 72px Arial'
-  ctx.fillText(`${awayFlag} ${match.away}`, 540, 500)
-
-  // Prediction
-  ctx.fillStyle = '#f7c948'
-  ctx.font = 'bold 140px Arial'
-  ctx.fillText(`${pred.home ?? '?'} – ${pred.away ?? '?'}`, 540, 680)
-  ctx.fillStyle = '#8892a0'; ctx.font = '36px Arial'
-  ctx.fillText('Mi pronóstico', 540, 740)
-
-  // Official result if exists
-  if (official) {
-    ctx.fillStyle = '#00e5a0'; ctx.font = 'bold 44px Arial'
-    ctx.fillText(`Resultado oficial: ${official.home} – ${official.away}`, 540, 820)
-  }
-
-  // Score
-  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 44px Arial'
-  ctx.fillText(`${alias}  ·  ${myScore} pts`, 540, 920)
-
-  // Bottom
-  ctx.fillStyle = '#2a3040'; ctx.font = '28px Arial'
-  ctx.fillText('approde.vercel.app', 540, 980)
-
-  return canvas.toDataURL('image/png')
-}
 
 function ShareModal({ match, pred, myScore, alias, official, onClose }) {
-  const [imgSrc, setImgSrc] = useState(null)
-  useEffect(() => {
-    setImgSrc(generateShareImage(match, pred, myScore, alias, official))
-  }, [])
+  const [copied, setCopied] = useState(false)
 
-  function download() {
-    const a = document.createElement('a')
-    a.href = imgSrc
-    a.download = `approde_${match.home}_vs_${match.away}.png`
-    a.click()
+  const predStr = `${pred.home ?? '?'}-${pred.away ?? '?'}`
+  const shareUrl = `https://approde.vercel.app`
+  const homeFlag = FLAG_EMOJIS[match.home] || ''
+  const awayFlag = FLAG_EMOJIS[match.away] || ''
+  const resultText = official ? ` (resultado oficial: ${official.home}-${official.away})` : ''
+
+  const whatsappText = `⚽ *APProde 2026*\n\nPronostiqué *${pred.home ?? '?'} – ${pred.away ?? '?'}* para ${homeFlag} *${match.home}* vs *${match.away}* ${awayFlag}${resultText}\n\nMi puntaje actual: *${myScore} pts*\n\n🏆 ¿Te animás a competir? Entrá al prode:\n${shareUrl}`
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`
+
+  function copyLink() {
+    navigator.clipboard.writeText(whatsappText).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: '#111827', borderRadius: 20, padding: 24, width: '100%', maxWidth: 420, border: '1px solid #1e2535' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ fontWeight: 800, color: '#fff', fontSize: 16 }}>📤 Compartir pronóstico</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
-        {imgSrc && <img src={imgSrc} alt="share" style={{ width: '100%', borderRadius: 12, marginBottom: 16 }} />}
-        <button onClick={download} style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#f7c948,#ff6b35)', color: '#0a0e1a', fontWeight: 800, fontSize: 15, marginBottom: 10 }}>
-          ⬇️ Descargar imagen
+
+        {/* Preview card */}
+        <div style={{ background: '#0d1117', borderRadius: 16, padding: 20, marginBottom: 20, border: '1px solid #1e2535' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <img src={LOGO_SRC} alt="APPro" style={{ height: 22 }} />
+            <span style={{ color: '#4a5568', fontSize: 12 }}>Mundial 2026</span>
+          </div>
+          <div style={{ textAlign: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#e2e8f0', marginBottom: 6 }}>
+              {homeFlag} {match.home} vs {match.away} {awayFlag}
+            </div>
+            <div style={{ fontSize: 48, fontWeight: 900, color: '#f7c948', lineHeight: 1 }}>
+              {pred.home ?? '?'} – {pred.away ?? '?'}
+            </div>
+            <div style={{ color: '#4a5568', fontSize: 12, marginTop: 6 }}>Mi pronóstico</div>
+            {official && (
+              <div style={{ color: '#00e5a0', fontSize: 13, marginTop: 6, fontWeight: 700 }}>
+                Oficial: {official.home} – {official.away}
+              </div>
+            )}
+          </div>
+          <div style={{ borderTop: '1px solid #1e2535', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#8892a0', fontSize: 13 }}>@{alias}</span>
+            <span style={{ color: '#f7c948', fontWeight: 700, fontSize: 13 }}>{myScore} pts</span>
+          </div>
+        </div>
+
+        {/* Share buttons */}
+        <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          width: '100%', padding: '15px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+          background: '#25D366', color: '#fff', fontWeight: 800, fontSize: 15,
+          textDecoration: 'none', marginBottom: 10, boxSizing: 'border-box',
+        }}>
+          <span style={{ fontSize: 20 }}>💬</span> Compartir por WhatsApp
+        </a>
+
+        <button onClick={copyLink} style={{
+          width: '100%', padding: '13px 0', borderRadius: 12, border: '1px solid #1e2535',
+          cursor: 'pointer', background: copied ? '#00e5a022' : 'none',
+          color: copied ? '#00e5a0' : '#8892a0', fontWeight: 600, fontSize: 14,
+        }}>
+          {copied ? '✓ Copiado' : '📋 Copiar texto'}
         </button>
-        <p style={{ color: '#4a5568', fontSize: 12, textAlign: 'center', margin: 0 }}>Guardá la imagen y compartila donde quieras</p>
+
+        <p style={{ color: '#2a3040', fontSize: 11, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
+          El mensaje incluye el link para que otros se registren en APProde
+        </p>
       </div>
     </div>
   )
@@ -1061,10 +1065,17 @@ export default function App() {
   async function loadLeaderboard() {
     try {
       const rows = await db.getLeaderboard()
-      const scored = rows.map(u => ({
-        alias: u.alias,
-        pts: calcScore(u.predictions, u.champion, u.top_scorer, official?.results || {}, official?.champion || '', official?.top_scorer || '', u.bonus_points || 0),
-      })).sort((a, b) => b.pts - a.pts)
+      const scored = rows.map(u => {
+        const pts = calcScore(u.predictions, u.champion, u.top_scorer, official?.results || {}, official?.champion || '', official?.top_scorer || '', u.bonus_points || 0)
+        const played = Object.keys(u.predictions || {}).filter(k => k !== 'knockout' && u.predictions[k]?.home !== undefined).length
+        return { alias: u.alias, pts, played }
+      }).sort((a, b) => {
+        const aQ = a.played >= 20, bQ = b.played >= 20
+        if (aQ && bQ) return b.pts - a.pts
+        if (aQ) return -1
+        if (bQ) return 1
+        return b.played - a.played
+      })
       setLeaderboard(scored)
     } catch (e) { console.error('Error cargando leaderboard', e) }
   }
@@ -1402,30 +1413,47 @@ export default function App() {
         {/* LEADERBOARD */}
         {tab === 'leaderboard' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: 0 }}>Posiciones</h2>
               <button onClick={loadLeaderboard} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>🔄</button>
             </div>
+            <div style={{ background: '#0d1117', borderRadius: 12, padding: '10px 14px', marginBottom: 16, border: '1px solid #1e2535' }}>
+              <div style={{ color: '#4a5568', fontSize: 12 }}>🏆 Se rankea por los <strong style={{ color: '#f7c948' }}>20 mejores partidos</strong> de cada jugador. Necesitás al menos 20 pronosticados para clasificar.</div>
+            </div>
             {leaderboard.length === 0 && <div style={{ textAlign: 'center', color: '#4a5568', padding: 40 }}>Sin jugadores aún...</div>}
-            {leaderboard.map((row, i) => (
+            {leaderboard.map((row, i) => {
+              const qualified = row.played >= 20
+              const rankPos = leaderboard.filter((r, j) => j < i && r.played >= 20).length
+              return (
               <div key={row.alias} onClick={() => setViewingProfile(row.alias)} style={{
                 ...S.card, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer',
                 borderColor: row.alias === user.alias ? '#f7c94844' : '#1e2535',
                 background: row.alias === user.alias ? '#1a1600' : '#111827',
+                opacity: qualified ? 1 : 0.7,
               }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: i === 0 ? '#f7c948' : i === 1 ? '#b0bec5' : i === 2 ? '#cd7f32' : '#1e2535', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 15, color: i < 3 ? '#0a0e1a' : '#4a5568' }}>{i + 1}</div>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                  background: !qualified ? '#1e2535' : rankPos === 0 ? '#f7c948' : rankPos === 1 ? '#b0bec5' : rankPos === 2 ? '#cd7f32' : '#1e2535',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 900, fontSize: 15,
+                  color: !qualified ? '#4a5568' : rankPos < 3 ? '#0a0e1a' : '#4a5568',
+                }}>{qualified ? rankPos + 1 : '—'}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: row.alias === user.alias ? '#f7c948' : '#e2e8f0' }}>
                     {row.alias} {row.alias === user.alias && '← Vos'}
                   </div>
-                  {i === 0 && <div style={{ fontSize: 11, color: '#f7c948' }}>👑 Líder</div>}
+                  <div style={{ fontSize: 11, marginTop: 2 }}>
+                    {qualified
+                      ? <span style={{ color: '#00e5a0' }}>✓ Top 20 activos · {row.played} jugados</span>
+                      : <span style={{ color: '#4a5568' }}>⏳ {row.played}/20 para clasificar</span>}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ScoreBadge pts={row.pts} />
                   {row.alias !== user.alias && <span style={{ color: '#4a5568', fontSize: 11 }}>👁</span>}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

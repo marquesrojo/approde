@@ -266,8 +266,14 @@ const db = {
     return data
   },
 
-  // Reactions
-  async getReactions(matchId) {
+  async getPlayerReactions(toAlias) {
+    const { data } = await supabase.from('player_reactions').select('*').eq('to_alias', toAlias)
+    return data || []
+  },
+  async setPlayerReaction(toAlias, fromAlias, matchId, emoji) {
+    await supabase.from('player_reactions')
+      .upsert({ to_alias: toAlias, from_alias: fromAlias, match_id: matchId, emoji }, { onConflict: 'to_alias,from_alias,match_id' })
+  },
     const { data } = await supabase.from('reactions').select('*').eq('match_id', matchId)
     return data || []
   },
@@ -804,10 +810,25 @@ function ShareModal({ match, pred, myScore, alias, official, onClose }) {
 function PlayerProfile({ alias, myAlias, officialResults, officialChampion, officialTopScorer, onClose, onChallenge }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [reactions, setReactions] = useState([])
 
   useEffect(() => {
-    db.getUserProfile(alias).then(p => { setProfile(p); setLoading(false) }).catch(() => setLoading(false))
+    Promise.all([
+      db.getUserProfile(alias),
+      db.getPlayerReactions(alias),
+    ]).then(([p, r]) => {
+      setProfile(p)
+      setReactions(r)
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [alias])
+
+  async function reactToMatch(matchId, emoji) {
+    if (alias === myAlias) return // no reaccionar a uno mismo
+    await db.setPlayerReaction(alias, myAlias, matchId, emoji)
+    const fresh = await db.getPlayerReactions(alias)
+    setReactions(fresh)
+  }
 
   if (loading) return (
     <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -884,11 +905,51 @@ function PlayerProfile({ alias, myAlias, officialResults, officialChampion, offi
             const correct = off && predRes === offRes
             const exact = off && pred.home === off.home && pred.away === off.away
             return (
-              <div key={match.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#0d1117', borderRadius: 10, marginBottom: 8, border: `1px solid ${exact ? '#00e5a033' : correct ? '#f7c94833' : '#1e2535'}` }}>
-                <span style={{ fontSize: 12, color: '#8892a0', flex: 1 }}><Flag team={match.home} size={14}/> {match.home}</span>
-                <span style={{ fontWeight: 800, color: '#fff', fontSize: 15, margin: '0 12px' }}>{pred.home} – {pred.away}</span>
-                <span style={{ fontSize: 12, color: '#8892a0', flex: 1, textAlign: 'right' }}>{match.away} <Flag team={match.away} size={14}/></span>
-                <span style={{ marginLeft: 8, fontSize: 14 }}>{exact ? '⭐' : correct ? '✓' : off ? '✗' : ''}</span>
+              <div key={match.id} style={{ background: '#0d1117', borderRadius: 10, marginBottom: 8, border: `1px solid ${exact ? '#00e5a033' : correct ? '#f7c94833' : '#1e2535'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
+                  <span style={{ fontSize: 12, color: '#8892a0', flex: 1 }}><Flag team={match.home} size={14}/> {match.home}</span>
+                  <span style={{ fontWeight: 800, color: '#fff', fontSize: 15, margin: '0 12px' }}>{pred.home} – {pred.away}</span>
+                  <span style={{ fontSize: 12, color: '#8892a0', flex: 1, textAlign: 'right' }}>{match.away} <Flag team={match.away} size={14}/></span>
+                  <span style={{ marginLeft: 8, fontSize: 14 }}>{exact ? '⭐' : correct ? '✓' : off ? '✗' : ''}</span>
+                </div>
+                {/* Reactions */}
+                <div style={{ padding: '0 14px 10px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  {(() => {
+                    const matchReactions = reactions.filter(r => r.match_id === match.id)
+                    const counts = matchReactions.reduce((acc, r) => { acc[r.emoji] = (acc[r.emoji] || 0) + 1; return acc }, {})
+                    const myReaction = matchReactions.find(r => r.from_alias === myAlias)?.emoji
+                    const [showPicker, setShowPicker] = useState(false)
+                    return (
+                      <>
+                        {Object.entries(counts).map(([emoji, count]) => (
+                          <button key={emoji} onClick={() => reactToMatch(match.id, emoji)} style={{
+                            background: myReaction === emoji ? '#f7c94822' : '#1e2535',
+                            border: `1px solid ${myReaction === emoji ? '#f7c948' : '#2a3040'}`,
+                            borderRadius: 20, padding: '3px 10px', cursor: alias === myAlias ? 'default' : 'pointer',
+                            fontSize: 13, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 4,
+                          }}>{emoji} <span style={{ fontSize: 11, color: '#4a5568' }}>{count}</span></button>
+                        ))}
+                        {alias !== myAlias && (
+                          <>
+                            <button onClick={() => setShowPicker(p => !p)} style={{
+                              background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+                              padding: '3px 10px', cursor: 'pointer', fontSize: 13, color: '#4a5568',
+                            }}>{myReaction || '+'}</button>
+                            {showPicker && (
+                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', width: '100%', marginTop: 4 }}>
+                                {REACTION_EMOJIS.map(e => (
+                                  <button key={e} onClick={() => { reactToMatch(match.id, e); setShowPicker(false) }} style={{
+                                    fontSize: 20, background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+                                  }}>{e}</button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             )
           })}

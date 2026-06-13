@@ -225,7 +225,7 @@ const db = {
   async createUser(alias, pin, phone = '') {
     const { data, error } = await supabase
       .from('users')
-      .insert({ alias: alias.toLowerCase().trim(), pin, phone, predictions: {}, champion: '', top_scorer: '' })
+      .insert({ alias: alias.toLowerCase().trim(), pin, phone, avatar: '⚽', predictions: {}, champion: '', top_scorer: '' })
       .select()
       .single()
     if (error) throw error
@@ -240,10 +240,18 @@ const db = {
     if (error) throw error
   },
 
+  async updateAvatar(alias, avatar) {
+    const { error } = await supabase
+      .from('users')
+      .update({ avatar })
+      .eq('alias', alias.toLowerCase().trim())
+    if (error) throw error
+  },
+
   async getLeaderboard() {
     const { data, error } = await supabase
       .from('users')
-      .select('alias, predictions, champion, top_scorer, bonus_points')
+      .select('alias, predictions, champion, top_scorer, bonus_points, avatar')
     if (error) throw error
     return data || []
   },
@@ -251,11 +259,59 @@ const db = {
   async getUserProfile(alias) {
     const { data, error } = await supabase
       .from('users')
-      .select('alias, predictions, champion, top_scorer, bonus_points')
+      .select('alias, predictions, champion, top_scorer, bonus_points, avatar')
       .eq('alias', alias.toLowerCase().trim())
       .single()
     if (error) throw error
     return data
+  },
+
+  // Reactions
+  async getReactions(matchId) {
+    const { data } = await supabase.from('reactions').select('*').eq('match_id', matchId)
+    return data || []
+  },
+  async setReaction(matchId, alias, emoji) {
+    await supabase.from('reactions').upsert({ match_id: matchId, alias, emoji }, { onConflict: 'match_id,alias' })
+  },
+
+  // Leagues
+  async createLeague(name, ownerAlias) {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+    const { data, error } = await supabase
+      .from('leagues')
+      .insert({ name, owner_alias: ownerAlias, invite_code: code })
+      .select().single()
+    if (error) throw error
+    await supabase.from('league_members').insert({ league_id: data.id, alias: ownerAlias })
+    return data
+  },
+  async joinLeague(leagueId, alias) {
+    const { error } = await supabase.from('league_members').upsert({ league_id: leagueId, alias }, { onConflict: 'league_id,alias' })
+    if (error) throw error
+  },
+  async getLeagueByCode(code) {
+    const { data, error } = await supabase.from('leagues').select('*').eq('invite_code', code.toUpperCase()).single()
+    if (error) return null
+    return data
+  },
+  async getMyLeagues(alias) {
+    const { data } = await supabase.from('league_members').select('league_id, leagues(*)').eq('alias', alias)
+    return (data || []).map(r => r.leagues).filter(Boolean)
+  },
+  async getLeagueMembers(leagueId) {
+    const { data } = await supabase.from('league_members').select('alias').eq('league_id', leagueId)
+    return (data || []).map(r => r.alias)
+  },
+
+  async removeMember(leagueId, alias) {
+    const { error } = await supabase.from('league_members').delete().eq('league_id', leagueId).eq('alias', alias)
+    if (error) throw error
+  },
+
+  async renameLeague(leagueId, newName) {
+    const { error } = await supabase.from('leagues').update({ name: newName }).eq('id', leagueId)
+    if (error) throw error
   },
 
   async addBonusPoint(alias) {
@@ -318,7 +374,39 @@ const db = {
   },
 }
 
-// ─── UI COMPONENTS ────────────────────────────────────────────────────────────
+// ─── AVATARS ──────────────────────────────────────────────────────────────────
+const AVATARS = [
+  '⚽','🏆','🥇','🔥','⭐','🎯','🦁','🐯','🦊','🐺',
+  '🦅','🐉','🤖','👑','💎','🚀','⚡','🎪','🎭','🃏',
+  '🇦🇷','🇧🇷','🇫🇷','🇪🇸','🇵🇹','🇩🇪','🏴󠁧󠁢󠁥󠁮󠁧󠁿','🇮🇹','🇳🇱','🇧🇪',
+]
+
+// ─── BADGES ───────────────────────────────────────────────────────────────────
+function calcBadges(predictions = {}, officialResults = {}, played = 0) {
+  const badges = []
+  if (played >= 72) badges.push({ id: 'full', emoji: '📋', label: 'Completista', desc: 'Pronosticaste todos los partidos' })
+  if (played >= 20) badges.push({ id: 'active', emoji: '🎯', label: 'Clasificado', desc: 'Más de 20 partidos pronosticados' })
+
+  let exactCount = 0, correctStreak = 0, maxStreak = 0
+  const played_ids = Object.keys(officialResults)
+  for (const id of played_ids) {
+    const pred = predictions[id]
+    const off = officialResults[id]
+    if (!pred || pred.home === undefined) { correctStreak = 0; continue }
+    const offRes = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
+    const predRes = pred.home > pred.away ? 'H' : pred.home < pred.away ? 'A' : 'D'
+    const exact = pred.home === off.home && pred.away === off.away
+    if (exact) exactCount++
+    if (predRes === offRes) { correctStreak++; maxStreak = Math.max(maxStreak, correctStreak) }
+    else correctStreak = 0
+  }
+  if (exactCount >= 1)  badges.push({ id: 'exact1',  emoji: '⭐', label: 'Precisión', desc: 'Primer marcador exacto' })
+  if (exactCount >= 5)  badges.push({ id: 'exact5',  emoji: '🌟', label: 'Francotirador', desc: '5 marcadores exactos' })
+  if (exactCount >= 10) badges.push({ id: 'exact10', emoji: '💫', label: 'Oráculo', desc: '10 marcadores exactos' })
+  if (maxStreak >= 3)   badges.push({ id: 'streak3', emoji: '🔥', label: 'En Racha', desc: '3 resultados correctos seguidos' })
+  if (maxStreak >= 5)   badges.push({ id: 'streak5', emoji: '⚡', label: 'Imparable', desc: '5 resultados correctos seguidos' })
+  return badges
+}
 function Flag({ team, size = 18 }) {
   return <span style={{ fontSize: size }}>{FLAG_EMOJIS[team] || '🏳️'}</span>
 }
@@ -347,6 +435,278 @@ function SyncBar({ official, isSyncing }) {
             : '📡 Sin sincronización aún'}
       </span>
       {official.sync_error && <span style={{ color: '#ff6b6b' }}>⚠ {official.sync_error.slice(0, 60)}</span>}
+    </div>
+  )
+}
+
+// ─── AVATAR PICKER ────────────────────────────────────────────────────────────
+function AvatarPicker({ current, onSelect, onClose }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#111827', borderRadius: 20, padding: 24, width: '100%', maxWidth: 380, border: '1px solid #1e2535' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontWeight: 800, color: '#fff', fontSize: 16 }}>🎨 Elegí tu avatar</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+          {AVATARS.map(a => (
+            <button key={a} onClick={() => { onSelect(a); onClose() }} style={{
+              fontSize: 32, background: current === a ? '#f7c94822' : '#0d1117',
+              border: `2px solid ${current === a ? '#f7c948' : '#1e2535'}`,
+              borderRadius: 12, padding: '8px 10px', cursor: 'pointer', transition: 'all .15s',
+            }}>{a}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── REACTIONS ────────────────────────────────────────────────────────────────
+const REACTION_EMOJIS = ['🔥','😱','🎉','😤','🤯','👏','😭','🏆']
+
+function MatchReactions({ matchId, alias, hasOfficial }) {
+  const [reactions, setReactions] = useState([])
+  const [myReaction, setMyReaction] = useState('')
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    if (hasOfficial) loadReactions()
+  }, [hasOfficial, matchId])
+
+  async function loadReactions() {
+    const data = await db.getReactions(matchId)
+    setReactions(data)
+    const mine = data.find(r => r.alias === alias)
+    if (mine) setMyReaction(mine.emoji)
+  }
+
+  async function react(emoji) {
+    setMyReaction(emoji)
+    setShow(false)
+    await db.setReaction(matchId, alias, emoji)
+    await loadReactions()
+  }
+
+  if (!hasOfficial) return null
+
+  const counts = reactions.reduce((acc, r) => { acc[r.emoji] = (acc[r.emoji] || 0) + 1; return acc }, {})
+  const topReactions = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4)
+
+  return (
+    <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      {topReactions.map(([emoji, count]) => (
+        <button key={emoji} onClick={() => react(emoji)} style={{
+          background: myReaction === emoji ? '#f7c94822' : '#0d1117',
+          border: `1px solid ${myReaction === emoji ? '#f7c948' : '#1e2535'}`,
+          borderRadius: 20, padding: '4px 10px', cursor: 'pointer',
+          fontSize: 14, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 4,
+        }}>{emoji} <span style={{ fontSize: 11, color: '#4a5568' }}>{count}</span></button>
+      ))}
+      <button onClick={() => setShow(!show)} style={{
+        background: '#0d1117', border: '1px solid #1e2535', borderRadius: 20,
+        padding: '4px 10px', cursor: 'pointer', fontSize: 14, color: '#4a5568',
+      }}>{myReaction || '+'}</button>
+      {show && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', width: '100%', marginTop: 4 }}>
+          {REACTION_EMOJIS.map(e => (
+            <button key={e} onClick={() => react(e)} style={{
+              fontSize: 22, background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+            }}>{e}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── LEAGUES ──────────────────────────────────────────────────────────────────
+function LeaguesPanel({ myAlias, officialResults, officialChampion, officialTopScorer, onClose }) {
+  const [leagues, setLeagues] = useState([])
+  const [view, setView] = useState('list') // list | create | join | detail
+  const [newName, setNewName] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [selectedLeague, setSelectedLeague] = useState(null)
+  const [leagueMembers, setLeagueMembers] = useState([])
+  const [leagueMembersData, setLeagueMembersData] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => { loadMyLeagues() }, [])
+
+  async function loadMyLeagues() {
+    const data = await db.getMyLeagues(myAlias)
+    setLeagues(data)
+  }
+
+  async function createLeague() {
+    if (!newName.trim()) return
+    setLoading(true)
+    try {
+      const league = await db.createLeague(newName.trim(), myAlias)
+      await loadMyLeagues()
+      setMsg(`Liga creada. Código: ${league.invite_code}`)
+      setNewName('')
+      setView('list')
+    } catch { setMsg('Error al crear la liga') }
+    setLoading(false)
+  }
+
+  async function joinLeague() {
+    if (!joinCode.trim()) return
+    setLoading(true)
+    try {
+      const league = await db.getLeagueByCode(joinCode)
+      if (!league) { setMsg('Código inválido'); setLoading(false); return }
+      await db.joinLeague(league.id, myAlias)
+      await loadMyLeagues()
+      setMsg(`¡Te uniste a ${league.name}!`)
+      setJoinCode('')
+      setView('list')
+    } catch { setMsg('Error al unirse') }
+    setLoading(false)
+  }
+
+  async function openLeague(league) {
+    setSelectedLeague(league)
+    const members = await db.getLeagueMembers(league.id)
+    setLeagueMembers(members)
+    const allUsers = await db.getLeaderboard()
+    const filtered = allUsers.filter(u => members.includes(u.alias))
+    const scored = filtered.map(u => ({
+      alias: u.alias,
+      avatar: u.avatar || '⚽',
+      pts: calcScore(u.predictions, u.champion, u.top_scorer, officialResults, officialChampion, officialTopScorer, u.bonus_points || 0),
+      played: Object.keys(u.predictions || {}).filter(k => k !== 'knockout' && u.predictions[k]?.home !== undefined).length,
+    })).sort((a, b) => b.pts - a.pts)
+    setLeagueMembersData(scored)
+    setView('detail')
+  }
+
+  const inviteLink = selectedLeague ? `https://approde.vercel.app?liga=${selectedLeague.invite_code}` : ''
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 300, overflowY: 'auto', padding: '20px 16px' }}>
+      <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 520, margin: '0 auto', border: '1px solid #1e2535' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {view !== 'list' && <button onClick={() => setView('list')} style={{ background: 'none', border: 'none', color: '#f7c948', cursor: 'pointer', fontSize: 20 }}>←</button>}
+            <div style={{ fontWeight: 800, fontSize: 18, color: '#fff' }}>
+              🏘️ {view === 'list' ? 'Mis Ligas' : view === 'create' ? 'Nueva Liga' : view === 'join' ? 'Unirse a Liga' : selectedLeague?.name}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>✕</button>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          {msg && <div style={{ background: '#00e5a022', color: '#00e5a0', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>{msg}</div>}
+
+          {/* LIST */}
+          {view === 'list' && (
+            <div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                <button onClick={() => setView('create')} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#f7c948,#ff6b35)', color: '#0a0e1a', fontWeight: 700 }}>+ Crear liga</button>
+                <button onClick={() => setView('join')} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '1px solid #1e2535', cursor: 'pointer', background: 'none', color: '#8892a0', fontWeight: 700 }}>Unirse</button>
+              </div>
+              {leagues.length === 0 && <div style={{ textAlign: 'center', color: '#4a5568', padding: 30 }}>No estás en ninguna liga todavía.</div>}
+              {leagues.map(l => (
+                <div key={l.id} onClick={() => openLeague(l)} style={{ ...{ background: '#0d1117', border: '1px solid #1e2535', borderRadius: 12, padding: 16, marginBottom: 10, cursor: 'pointer' } }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{l.name}</div>
+                      <div style={{ color: '#4a5568', fontSize: 12, marginTop: 2 }}>Código: {l.invite_code}</div>
+                    </div>
+                    <span style={{ color: '#f7c948', fontSize: 18 }}>›</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* CREATE */}
+          {view === 'create' && (
+            <div>
+              <label style={{ color: '#8892a0', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>Nombre de la liga</label>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ej: Los del trabajo"
+                style={{ width: '100%', marginTop: 8, marginBottom: 20, padding: '13px 16px', background: '#0d1117', border: '1px solid #1e2535', borderRadius: 12, color: '#fff', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              <button onClick={createLeague} disabled={loading} style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#f7c948,#ff6b35)', color: '#0a0e1a', fontWeight: 800, fontSize: 15 }}>
+                {loading ? 'Creando...' : '🏘️ Crear liga'}
+              </button>
+            </div>
+          )}
+
+          {/* JOIN */}
+          {view === 'join' && (
+            <div>
+              <label style={{ color: '#8892a0', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>Código o link de invitación</label>
+              <input value={joinCode} onChange={e => setJoinCode(e.target.value.replace(/.*liga=/, ''))} placeholder="ABC123"
+                style={{ width: '100%', marginTop: 8, marginBottom: 20, padding: '13px 16px', background: '#0d1117', border: '1px solid #1e2535', borderRadius: 12, color: '#fff', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              <button onClick={joinLeague} disabled={loading} style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 800, fontSize: 15 }}>
+                {loading ? 'Uniéndome...' : '🔗 Unirse a la liga'}
+              </button>
+            </div>
+          )}
+
+          {/* DETAIL */}
+          {view === 'detail' && selectedLeague && (
+            <div>
+              {/* Invite link */}
+              <div style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 16, border: '1px solid #1e2535' }}>
+                <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 8 }}>🔗 Link de invitación</div>
+                <div style={{ color: '#f7c948', fontSize: 13, wordBreak: 'break-all', marginBottom: 10 }}>{inviteLink}</div>
+                <button onClick={async () => {
+                  if (navigator.share) await navigator.share({ text: `Unite a mi liga "${selectedLeague.name}" en APProde:\n${inviteLink}` })
+                  else { navigator.clipboard.writeText(inviteLink); setMsg('Link copiado') }
+                }} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer', background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                  📤 Compartir invitación
+                </button>
+              </div>
+
+              {/* Ranking */}
+              <div style={{ fontWeight: 700, color: '#8892a0', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
+                Ranking · {leagueMembersData.length} jugadores
+              </div>
+              {leagueMembersData.map((row, i) => (
+                <div key={row.alias} style={{ background: '#0d1117', border: `1px solid ${row.alias === myAlias ? '#f7c94844' : '#1e2535'}`, borderRadius: 12, padding: '12px 16px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: '50%', background: i === 0 ? '#f7c948' : i === 1 ? '#b0bec5' : i === 2 ? '#cd7f32' : '#1e2535', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13, color: i < 3 ? '#0a0e1a' : '#4a5568', flexShrink: 0 }}>{i + 1}</div>
+                  <span style={{ fontSize: 22 }}>{row.avatar}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, color: row.alias === myAlias ? '#f7c948' : '#fff', fontSize: 14 }}>{row.alias}</div>
+                    <div style={{ color: '#4a5568', fontSize: 11 }}>{row.played} partidos</div>
+                  </div>
+                  <ScoreBadge pts={row.pts} />
+                  {selectedLeague.owner_alias === myAlias && row.alias !== myAlias && (
+                    <button onClick={async () => {
+                      if (!confirm(`¿Eliminar a ${row.alias} de la liga?`)) return
+                      await db.removeMember(selectedLeague.id, row.alias)
+                      setLeagueMembersData(prev => prev.filter(r => r.alias !== row.alias))
+                    }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>✕</button>
+                  )}
+                </div>
+              ))}
+
+              {/* Admin: rename league */}
+              {selectedLeague.owner_alias === myAlias && (
+                <div style={{ marginTop: 16, background: '#0d1117', borderRadius: 12, padding: 14, border: '1px solid #ff6b3533' }}>
+                  <div style={{ color: '#ff6b35', fontWeight: 700, fontSize: 12, marginBottom: 10 }}>⚙ Admin de liga</div>
+                  <input
+                    defaultValue={selectedLeague.name}
+                    onBlur={async (e) => {
+                      if (e.target.value.trim() && e.target.value !== selectedLeague.name) {
+                        await db.renameLeague(selectedLeague.id, e.target.value.trim())
+                        setSelectedLeague(prev => ({ ...prev, name: e.target.value.trim() }))
+                        setMsg('Liga renombrada ✓')
+                      }
+                    }}
+                    style={{ width: '100%', padding: '10px 14px', background: '#1e2535', border: '1px solid #2a3040', borderRadius: 10, color: '#fff', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ color: '#4a5568', fontSize: 11, marginTop: 6 }}>Editá el nombre y tocá fuera para guardar</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -466,7 +826,8 @@ function PlayerProfile({ alias, myAlias, officialResults, officialChampion, offi
       <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 600, margin: '0 auto', border: '1px solid #1e2535' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 20, color: '#fff' }}>👤 {alias}</div>
+            <div style={{ fontWeight: 700, color: '#fff', marginBottom: 6 }}>👤 {alias}</div>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>{profile?.avatar || '⚽'}</div>
             <ScoreBadge pts={pts} />
             {(profile?.bonus_points || 0) > 0 && <span style={{ marginLeft: 8, color: '#f7c948', fontSize: 12 }}>+{profile.bonus_points} bonus</span>}
           </div>
@@ -489,6 +850,29 @@ function PlayerProfile({ alias, myAlias, officialResults, officialChampion, offi
               <div style={{ color: profile?.top_scorer ? '#f7c948' : '#2a3040', fontWeight: 700 }}>{profile?.top_scorer || '—'}</div>
             </div>
           </div>
+
+          {/* Badges */}
+          {(() => {
+            const played = playedMatches.length
+            const badges = calcBadges(profile?.predictions || {}, officialResults, played)
+            if (badges.length === 0) return null
+            return (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: '#4a5568', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Logros</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {badges.map(b => (
+                    <div key={b.id} style={{ background: '#0d1117', border: '1px solid #f7c94833', borderRadius: 10, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 18 }}>{b.emoji}</span>
+                      <div>
+                        <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 12 }}>{b.label}</div>
+                        <div style={{ color: '#4a5568', fontSize: 10 }}>{b.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Predictions */}
           <div style={{ fontWeight: 700, color: '#8892a0', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Pronósticos ({playedMatches.length}/{MATCHES.length})</div>
@@ -779,6 +1163,7 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
       )}
       {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
       {isLocked && !hasOfficial && <div style={{ textAlign: 'center', marginTop: 8, color: '#4a5568', fontSize: 11 }}>Pronóstico cerrado — partido iniciado</div>}
+      <MatchReactions matchId={match.id} alias={S.alias || ''} hasOfficial={hasOfficial} />
       {pred.home !== undefined && pred.away !== undefined && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <button onClick={() => S.onShare && S.onShare(match)} style={{ background: 'none', border: '1px solid #1e2535', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 11 }}>📤 Compartir</button>
@@ -1134,6 +1519,21 @@ export default function App() {
   const [challengingAlias, setChallengingAlias] = useState(null)
   const [challenges, setChallenges] = useState([])
   const [showChallenges, setShowChallenges] = useState(false)
+  const [showLeagues, setShowLeagues] = useState(false)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+
+  // Auto-join league from URL param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ligaCode = params.get('liga')
+    if (ligaCode && user) {
+      db.getLeagueByCode(ligaCode).then(league => {
+        if (league) db.joinLeague(league.id, user.alias)
+      })
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [user])
 
   // Load official results on mount + auto-sync
   useEffect(() => {
@@ -1246,7 +1646,7 @@ export default function App() {
       const scored = rows.map(u => {
         const pts = calcScore(u.predictions, u.champion, u.top_scorer, official?.results || {}, official?.champion || '', official?.top_scorer || '', u.bonus_points || 0)
         const played = Object.keys(u.predictions || {}).filter(k => k !== 'knockout' && u.predictions[k]?.home !== undefined).length
-        return { alias: u.alias, pts, played }
+        return { alias: u.alias, pts, played, avatar: u.avatar || '⚽' }
       }).sort((a, b) => {
         const aQ = a.played >= 20, bQ = b.played >= 20
         if (aQ && bQ) return b.pts - a.pts
@@ -1306,6 +1706,7 @@ export default function App() {
     card: { background: '#111827', border: '1px solid #1e2535', borderRadius: 16, padding: 16, marginBottom: 12 },
     input: { width: 50, textAlign: 'center', padding: '10px 0', background: '#0d1117', border: '1px solid #1e2535', borderRadius: 10, color: '#fff', fontSize: 18, fontWeight: 700, outline: 'none' },
     onShare: (match) => setShareMatch(match),
+    alias: user.alias,
   }
 
   return (
@@ -1332,6 +1733,25 @@ export default function App() {
           officialTopScorer={officialTopScorer}
           onClose={() => setViewingProfile(null)}
           onChallenge={(alias) => { setViewingProfile(null); setChallengingAlias(alias) }}
+        />
+      )}
+      {showLeagues && (
+        <LeaguesPanel
+          myAlias={user.alias}
+          officialResults={officialResults}
+          officialChampion={officialChampion}
+          officialTopScorer={officialTopScorer}
+          onClose={() => setShowLeagues(false)}
+        />
+      )}
+      {showAvatarPicker && (
+        <AvatarPicker
+          current={user.avatar || '⚽'}
+          onSelect={async (avatar) => {
+            await db.updateAvatar(user.alias, avatar)
+            setUser(prev => ({ ...prev, avatar }))
+          }}
+          onClose={() => setShowAvatarPicker(false)}
         />
       )}
       {showChallenges && (
@@ -1377,14 +1797,16 @@ export default function App() {
 
       {/* Header */}
       <div style={S.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={LOGO_SRC} alt="APPro" style={{ height: 28 }} />
-          <span style={{ color: '#4a5568', fontSize: 12 }}>⚽ Hola, {user.alias}</span>
-        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img src={LOGO_SRC} alt="APPro" style={{ height: 28 }} />
+          <button onClick={() => setShowAvatarPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 24, padding: 0 }}>{user.avatar || '⚽'}</button>
+          <span style={{ color: '#4a5568', fontSize: 12 }}>{user.alias}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <ScoreBadge pts={myScore} />
-          <button onClick={() => setShowAdminLogin(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 11 }}>⚙</button>
-          <button onClick={() => setUser(null)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 11 }}>Salir</button>
+          <button onClick={() => setShowLeagues(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontSize: 13 }}>🏘️</button>
+          <button onClick={() => setShowAdminLogin(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontSize: 11 }}>⚙</button>
+          <button onClick={() => setUser(null)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontSize: 11 }}>Salir</button>
         </div>
       </div>
 
@@ -1643,6 +2065,7 @@ export default function App() {
                   fontWeight: 900, fontSize: 15,
                   color: !qualified ? '#4a5568' : rankPos < 3 ? '#0a0e1a' : '#4a5568',
                 }}>{qualified ? rankPos + 1 : '—'}</div>
+                <span style={{ fontSize: 22, flexShrink: 0 }}>{row.avatar || '⚽'}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: row.alias === user.alias ? '#f7c948' : '#e2e8f0' }}>
                     {row.alias} {row.alias === user.alias && '← Vos'}

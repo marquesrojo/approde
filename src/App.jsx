@@ -1107,6 +1107,8 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
   const now = Date.now()
   const kickoffMs = match.kickoff ? new Date(match.kickoff).getTime() : null
   const isLocked = off || (kickoffMs && now > kickoffMs + 10 * 60 * 1000)
+  const isInPlay = kickoffMs && now >= kickoffMs && !off
+  const minutesLeftToEdit = isInPlay && !isLocked ? Math.ceil((kickoffMs + 10 * 60 * 1000 - now) / 60000) : null
   const isKickoffSoon = kickoffMs && now > kickoffMs - 30 * 60 * 1000 && now < kickoffMs
   const hasOfficial = !!off
   const [listening, setListening] = useState(false)
@@ -1198,7 +1200,7 @@ Responder SOLO con este JSON, sin texto adicional:
           {match.kickoff && <span style={{ color: isKickoffSoon ? '#f7c948' : '#4a5568', fontWeight: isKickoffSoon ? 700 : 400 }}> · {localTime(match.kickoff)}</span>}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {isLocked && !hasOfficial && <span style={{ background: '#ff6b3522', color: '#ff6b35', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>🔒 Cerrado</span>}
+          {isInPlay && <span style={{ background: '#00e5a022', color: '#00e5a0', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>🔴 En juego</span>}
           {isKickoffSoon && <span style={{ background: '#f7c94822', color: '#f7c948', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>⏰ ¡Pronto!</span>}
           {exact && <span style={{ color: '#00e5a0', fontSize: 12, fontWeight: 700 }}>⭐ Exacto +3</span>}
           {correct && !exact && <span style={{ color: '#f7c948', fontSize: 12, fontWeight: 700 }}>✓ Resultado +1</span>}
@@ -1214,6 +1216,11 @@ Responder SOLO con este JSON, sin texto adicional:
         </div>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.away} /> {match.away}</div>
       </div>
+      {minutesLeftToEdit !== null && (
+        <div style={{ textAlign: 'center', marginTop: 8, color: '#00e5a0', fontSize: 11 }}>
+          🔴 ¡Ya arrancó! Podés editar {minutesLeftToEdit} min más
+        </div>
+      )}
       {!isLocked && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <button onClick={startVoice} disabled={listening} style={{
@@ -1255,7 +1262,20 @@ Responder SOLO con este JSON, sin texto adicional:
       )}
       {aiSuggestion?.error && <div style={{ marginTop: 8, color: '#ff6b6b', fontSize: 12, textAlign: 'center' }}>{aiSuggestion.error}</div>}
       {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
-      {isLocked && !hasOfficial && <div style={{ textAlign: 'center', marginTop: 8, color: '#4a5568', fontSize: 11 }}>Pronóstico cerrado — partido iniciado</div>}
+      {isInPlay && (
+        <div style={{ textAlign: 'center', marginTop: 8 }}>
+          <div style={{ color: '#00e5a0', fontSize: 11, marginBottom: 6 }}>🔴 Partido en juego — pronóstico cerrado</div>
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(`${match.home} vs ${match.away} resultado en vivo`)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+              background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+              padding: '5px 14px', color: '#8892a0', fontSize: 12,
+            }}
+          >📊 Ver resultado en vivo</a>
+        </div>
+      )}
       {pred.home !== undefined && pred.away !== undefined && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <button onClick={() => S.onShare && S.onShare(match)} style={{ background: 'none', border: '1px solid #1e2535', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 11 }}>📤 Compartir</button>

@@ -17,7 +17,7 @@ const GROUPS = {
   H: ['España', 'Uruguay', 'Arabia Saudita', 'Cabo Verde'],
   I: ['Francia', 'Senegal', 'Noruega', 'Bolivia'],
   J: ['Argentina', 'Austria', 'Argelia', 'Jordania'],
-  K: ['Portugal', 'Colombia', 'Uzbekistán', 'Jamaica'],
+  K: ['Portugal', 'Colombia', 'Uzbekistán', 'RD Congo'],
   L: ['Inglaterra', 'Croacia', 'Panamá', 'Ghana'],
 }
 
@@ -93,12 +93,12 @@ const MATCHES = [
   { id: 59, group: 'J', home: 'Argentina',       away: 'Jordania',        date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   { id: 60, group: 'J', home: 'Austria',         away: 'Argelia',         date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   // Grupo K
-  { id: 61, group: 'K', home: 'Portugal',        away: 'Colombia',        date: '17 Jun', time: '20:00 ARG', kickoff: '2026-06-17T23:00:00Z' },
-  { id: 62, group: 'K', home: 'Uzbekistán',      away: 'Jamaica',         date: '17 Jun', time: '16:00 ARG', kickoff: '2026-06-17T19:00:00Z' },
+  { id: 61, group: 'K', home: 'Uzbekistán',      away: 'Colombia',        date: '17 Jun', time: '20:00 ARG', kickoff: '2026-06-17T23:00:00Z' },
+  { id: 62, group: 'K', home: 'Portugal',        away: 'RD Congo',        date: '17 Jun', time: '16:00 ARG', kickoff: '2026-06-17T19:00:00Z' },
   { id: 63, group: 'K', home: 'Portugal',        away: 'Uzbekistán',      date: '22 Jun', time: '22:00 ARG', kickoff: '2026-06-23T01:00:00Z' },
-  { id: 64, group: 'K', home: 'Colombia',        away: 'Jamaica',         date: '23 Jun', time: '16:00 ARG', kickoff: '2026-06-23T19:00:00Z' },
-  { id: 65, group: 'K', home: 'Portugal',        away: 'Jamaica',         date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
-  { id: 66, group: 'K', home: 'Colombia',        away: 'Uzbekistán',      date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 64, group: 'K', home: 'Colombia',        away: 'RD Congo',        date: '23 Jun', time: '16:00 ARG', kickoff: '2026-06-23T19:00:00Z' },
+  { id: 65, group: 'K', home: 'Colombia',        away: 'Portugal',        date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
+  { id: 66, group: 'K', home: 'RD Congo',        away: 'Uzbekistán',      date: '27 Jun', time: '19:00 ARG', kickoff: '2026-06-27T22:00:00Z' },
   // Grupo L
   { id: 67, group: 'L', home: 'Inglaterra',      away: 'Croacia',         date: '17 Jun', time: '19:00 ARG', kickoff: '2026-06-17T22:00:00Z' },
   { id: 68, group: 'L', home: 'Panamá',          away: 'Ghana',           date: '18 Jun', time: '13:00 ARG', kickoff: '2026-06-18T16:00:00Z' },
@@ -115,7 +115,7 @@ const ALL_TEAMS = [
   'Ecuador','Croacia','Suiza','Senegal','Japón','Corea del Sur',
   'Marruecos','Ghana','Australia','EE.UU.','Canadá','Arabia Saudita',
   'Turquía','Qatar','Italia','Noruega','Escocia','Austria',
-  'Argelia','Irán','Egipto','Panamá','Uzbekistán','Jamaica',
+  'Argelia','Irán','Egipto','Panamá','Uzbekistán','RD Congo',
 ]
 
 const FLAG_EMOJIS = {
@@ -127,7 +127,7 @@ const FLAG_EMOJIS = {
   'Ghana':'🇬🇭','Australia':'🇦🇺','EE.UU.':'🇺🇸','Canadá':'🇨🇦',
   'Arabia Saudita':'🇸🇦','Turquía':'🇹🇷','Qatar':'🇶🇦','Noruega':'🇳🇴',
   'Escocia':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Austria':'🇦🇹','Argelia':'🇩🇿','Irán':'🇮🇷',
-  'Egipto':'🇪🇬','Panamá':'🇵🇦','Uzbekistán':'🇺🇿','Jamaica':'🇯🇲',
+  'Egipto':'🇪🇬','Panamá':'🇵🇦','Uzbekistán':'🇺🇿','RD Congo':'🇨🇩',
   'Sudáfrica':'🇿🇦','Rep. Checa':'🇨🇿','Haití':'🇭🇹','Paraguay':'🇵🇾',
   'Costa de Marfil':'🇨🇮','Curazao':'🇨🇼','Túnez':'🇹🇳','Ucrania':'🇺🇦',
   'Nueva Zelanda':'🇳🇿','Cabo Verde':'🇨🇻','Bolivia':'🇧🇴','Jordania':'🇯🇴',
@@ -1016,6 +1016,7 @@ const TEAM_VOICE_ALIASES = {
   'Nueva Zelanda': ['nueva zelanda', 'zelanda'],
   'Bosnia': ['bosnia', 'bosnia herzegovina'],
   'Cabo Verde': ['cabo verde'],
+  'RD Congo': ['rd congo', 'congo', 'republica democratica del congo', 'r d congo'],
 }
 
 function stripAccents(s) {

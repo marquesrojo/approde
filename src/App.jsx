@@ -1003,19 +1003,75 @@ const WORDS_TO_NUM = {
   'ocho':8,'eight':8,'nueve':9,'nine':9,'diez':10,'ten':10,'once':11,'eleven':11,
   'doce':12,'twelve':12,'trece':13,'catorce':14,'quince':15,
 }
-function parseVoiceScore(transcript) {
-  const t = transcript.toLowerCase().trim()
-  // Try "X a Y", "X - Y", "X y Y"
-  const sep = t.match(/(\w+)\s+(?:a|al|y|-|vs)\s+(\w+)/)
-  if (sep) {
-    const h = WORDS_TO_NUM[sep[1]] ?? parseInt(sep[1])
-    const a = WORDS_TO_NUM[sep[2]] ?? parseInt(sep[2])
-    if (!isNaN(h) && !isNaN(a)) return { home: h, away: a }
+
+// Apodos / formas habladas alternativas para equipos con nombres compuestos o que
+// el reconocimiento de voz puede transcribir distinto al nombre oficial.
+const TEAM_VOICE_ALIASES = {
+  'EE.UU.': ['estados unidos', 'eeuu', 'ee uu', 'usa'],
+  'Corea del Sur': ['corea del sur', 'corea'],
+  'Países Bajos': ['paises bajos', 'holanda'],
+  'Rep. Checa': ['republica checa', 'rep checa', 'chequia', 'checa'],
+  'Costa de Marfil': ['costa de marfil', 'marfil'],
+  'Arabia Saudita': ['arabia saudita', 'arabia', 'saudita'],
+  'Nueva Zelanda': ['nueva zelanda', 'zelanda'],
+  'Bosnia': ['bosnia', 'bosnia herzegovina'],
+  'Cabo Verde': ['cabo verde'],
+}
+
+function stripAccents(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+// Devuelve la lista de formas habladas posibles (normalizadas, sin acentos) para un equipo
+function teamVoiceForms(teamName) {
+  const forms = [stripAccents(teamName.toLowerCase()).replace(/\./g, '')]
+  if (TEAM_VOICE_ALIASES[teamName]) {
+    TEAM_VOICE_ALIASES[teamName].forEach(a => forms.push(stripAccents(a.toLowerCase())))
   }
-  // Try two consecutive words/numbers
-  const words = t.split(/\s+/)
-  const nums = words.map(w => WORDS_TO_NUM[w] ?? parseInt(w)).filter(n => !isNaN(n))
-  if (nums.length >= 2) return { home: nums[0], away: nums[1] }
+  return forms
+}
+
+// Busca la posición (índice de palabra) donde aparece el nombre del equipo en el transcript
+function findTeamIndex(tokens, teamName) {
+  const forms = teamVoiceForms(teamName)
+  for (const form of forms) {
+    const formWords = form.split(/\s+/)
+    for (let i = 0; i <= tokens.length - formWords.length; i++) {
+      if (formWords.every((w, j) => tokens[i + j] === w)) return i + formWords.length - 1
+    }
+  }
+  return -1
+}
+
+function parseVoiceScore(transcript, homeTeam, awayTeam) {
+  const t = stripAccents(transcript.toLowerCase().trim())
+  const tokens = t.split(/\s+/)
+
+  // Extraer todos los números mencionados con su posición
+  const numTokens = []
+  tokens.forEach((w, i) => {
+    const n = WORDS_TO_NUM[w] ?? (/^\d+$/.test(w) ? parseInt(w) : NaN)
+    if (!isNaN(n)) numTokens.push({ index: i, value: n })
+  })
+
+  // Intentar emparejar por nombre de equipo: el número más cercano DESPUÉS de
+  // la mención de cada equipo le corresponde a ese equipo.
+  if (numTokens.length >= 2 && homeTeam && awayTeam) {
+    const homeIdx = findTeamIndex(tokens, homeTeam)
+    const awayIdx = findTeamIndex(tokens, awayTeam)
+    if (homeIdx >= 0 && awayIdx >= 0) {
+      const closestAfter = (pos) => numTokens.filter(n => n.index > pos).sort((a, b) => a.index - b.index)[0]
+      const homeNum = closestAfter(homeIdx)
+      const awayNum = closestAfter(awayIdx)
+      if (homeNum && awayNum && homeNum.index !== awayNum.index) {
+        return { home: homeNum.value, away: awayNum.value }
+      }
+    }
+  }
+
+  // Sin nombres de equipo reconocidos: usar los dos primeros números en orden
+  // (asume "local primero, visitante segundo", como antes)
+  if (numTokens.length >= 2) return { home: numTokens[0].value, away: numTokens[1].value }
   return null
 }
 
@@ -1042,14 +1098,14 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 300,
+          max_tokens: 800,
           tools: [{ type: 'web_search_20250305', name: 'web_search' }],
           messages: [{
             role: 'user',
-            content: `Analizá el partido ${match.home} vs ${match.away} del Mundial 2026. Considerá: ranking FIFA actual, forma reciente, historial entre ambos, jugadores clave, sede del partido. Dame un pronóstico de marcador final realista.
+            content: `Pronóstico Mundial 2026: ${match.home} vs ${match.away}. Considerá ranking FIFA, forma reciente y contexto. Buscá info breve y respondé YA.
 
-Respondé SOLO con JSON válido sin markdown:
-{"home": 2, "away": 1, "reasoning": "explicación breve en español de máximo 2 oraciones"}`
+Responder SOLO con este JSON, sin texto adicional:
+{"home": 2, "away": 1, "reasoning": "máx 2 oraciones en español"}`
           }]
         }),
       })
@@ -1058,7 +1114,7 @@ Respondé SOLO con JSON válido sin markdown:
       const text = data.content?.find(b => b.type === 'text')?.text || ''
       const clean = text.replace(/```json|```/g, '').trim()
       const jsonMatch = clean.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('Sin respuesta de la IA')
+      if (!jsonMatch) throw new Error('La IA no devolvió una respuesta a tiempo. Probá de nuevo.')
       const result = JSON.parse(jsonMatch[0])
       setAiSuggestion(result)
     } catch (e) {
@@ -1093,7 +1149,7 @@ Respondé SOLO con JSON válido sin markdown:
     rec.onresult = (e) => {
       const transcripts = Array.from(e.results[0]).map(r => r.transcript)
       let parsed = null
-      for (const t of transcripts) { parsed = parseVoiceScore(t); if (parsed) break }
+      for (const t of transcripts) { parsed = parseVoiceScore(t, match.home, match.away); if (parsed) break }
       if (parsed) {
         setPred(match.id, 'home', String(parsed.home))
         setPred(match.id, 'away', String(parsed.away))

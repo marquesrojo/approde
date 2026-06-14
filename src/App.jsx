@@ -2005,7 +2005,7 @@ export default function App() {
           predictions={predictions}
           officialResults={officialResults}
           onClose={() => setChallengingAlias(null)}
-          onSend={() => setChallengingAlias(null)}
+          onSend={() => loadChallenges(user.alias)}
         />
       )}
 

@@ -1776,7 +1776,8 @@ export default function App() {
             await supabase.from('challenges').update({ winner_alias: winner, status: 'resolved' }).eq('id', ch.id)
             await db.addBonusPoint(winner)
             await db.subtractBonusPoint(loser)
-          } else if (fromCorrect && toCorrect) {
+          } else {
+            // Empate: ambos acertaron por igual (incluyendo el caso de que ambos fallaron)
             await supabase.from('challenges').update({ winner_alias: 'tie', status: 'resolved' }).eq('id', ch.id)
           }
         }

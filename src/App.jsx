@@ -941,7 +941,7 @@ function ChallengeModal({ myAlias, toAlias, predictions, officialResults, onClos
     try {
       await db.createChallenge(myAlias, toAlias, selectedMatch.id)
       setSent(true)
-      setTimeout(() => { onSend(); onClose() }, 1500)
+      onSend()
     } catch { setSending(false) }
   }
 
@@ -972,7 +972,23 @@ function ChallengeModal({ myAlias, toAlias, predictions, officialResults, onClos
               )}
             </div>
           ))}
-          {sent && <div style={{ color: '#00e5a0', textAlign: 'center', fontWeight: 700, marginTop: 12 }}>✓ ¡Desafío enviado!</div>}
+          {sent && (
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <div style={{ color: '#00e5a0', fontWeight: 700, marginBottom: 12 }}>✓ ¡Desafío enviado!</div>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`⚔️ *APProde 2026*\n\nTe desafié a ${toAlias} en ${selectedMatch ? `${selectedMatch.home} vs ${selectedMatch.away}` : 'un partido'} 🔥\n\nEl que acierte mejor gana +1 punto (y el otro pierde -1). ¡Entrá a aceptar el desafío!\n\nhttps://approde.vercel.app`)}`}
+                target="_blank" rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none',
+                  background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 13,
+                  padding: '10px 18px', borderRadius: 12,
+                }}
+              >📲 Avisar por WhatsApp</a>
+              <div style={{ marginTop: 12 }}>
+                <button onClick={onClose} style={{ background: 'none', border: '1px solid #1e2535', color: '#8892a0', borderRadius: 10, padding: '8px 18px', cursor: 'pointer', fontSize: 13 }}>Cerrar</button>
+              </div>
+            </div>
+          )}
           {!sent && availableMatches.length > 0 && (
             <button onClick={sendChallenge} disabled={!selectedMatch || sending} style={{
               width: '100%', marginTop: 16, padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer',

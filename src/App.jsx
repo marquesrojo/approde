@@ -120,12 +120,6 @@ const ALL_TEAMS = [
   'Argelia','Irán','Egipto','Panamá','Uzbekistán','Jamaica',
 ]
 
-const TOP_SCORERS = [
-  'Lionel Messi','Kylian Mbappé','Erling Haaland','Vinicius Jr.',
-  'Harry Kane','Lautaro Martínez','Pedri','Jude Bellingham',
-  'Rodri','Luis Díaz','Antoine Griezmann','Raphinha',
-]
-
 const FLAG_EMOJIS = {
   'Argentina':'🇦🇷','Brasil':'🇧🇷','Francia':'🇫🇷','España':'🇪🇸',
   'Portugal':'🇵🇹','Alemania':'🇩🇪','Inglaterra':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Italia':'🇮🇹',
@@ -142,7 +136,7 @@ const FLAG_EMOJIS = {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-function calcScore(predictions = {}, champion, topScorer, officialResults = {}, officialChampion = '', officialTopScorer = '', bonusPoints = 0) {
+function calcScore(predictions = {}, officialResults = {}, bonusPoints = 0) {
   // Calculate points per match
   const matchPoints = []
   Object.entries(officialResults).forEach(([id, official]) => {
@@ -160,42 +154,42 @@ function calcScore(predictions = {}, champion, topScorer, officialResults = {}, 
   matchPoints.sort((a, b) => b - a)
   const top20 = matchPoints.slice(0, 20)
   let total = top20.reduce((sum, p) => sum + p, 0)
-
-  // Special predictions (always count)
-  if (champion  && officialChampion  && champion  === officialChampion)  total += 5
-  if (topScorer && officialTopScorer && topScorer === officialTopScorer) total += 3
   total += (bonusPoints || 0)
   return total
 }
 
-async function fetchResultsFromAI() {
-  const matchList = MATCHES.map(m => `ID ${m.id}: ${m.home} vs ${m.away} (${m.date})`).join('\n')
-  const prompt = `Sos un asistente especializado en fútbol. Buscá en la web los resultados oficiales y finales del Mundial 2026 (FIFA World Cup 2026).
+// Devuelve los partidos de HOY que ya empezaron pero todavía no tienen resultado oficial
+function getPendingTodayMatches(officialResults = {}) {
+  const now = Date.now()
+  const today = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  return MATCHES.filter(m => {
+    if (!m.kickoff) return false
+    if (officialResults[m.id]) return false // ya tiene resultado
+    const kickoffMs = new Date(m.kickoff).getTime()
+    if (kickoffMs > now) return false // todavía no empezó
+    const matchDate = new Date(m.kickoff).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+    return matchDate === today
+  })
+}
 
-Lista de partidos:
+async function fetchResultsFromAI(officialResults = {}) {
+  const pending = getPendingTodayMatches(officialResults)
+  if (pending.length === 0) return null // nada para consultar, ahorramos la llamada
+
+  const matchList = pending.map(m => `ID ${m.id}: ${m.home} vs ${m.away}`).join('\n')
+  const prompt = `Buscá en la web los resultados FINALES de estos partidos del Mundial 2026 de HOY que ya deberían haber terminado:
 ${matchList}
 
-Para cada partido que YA TERMINÓ, incluí el resultado final. Si no se jugó todavía, no lo incluyas.
-También indicá el campeón del torneo y el goleador si ya se definieron.
-
-Respondé ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
-{
-  "results": {
-    "1": {"home": 2, "away": 0}
-  },
-  "champion": "Argentina",
-  "topScorer": "Lionel Messi",
-  "source": "nombre de la fuente consultada",
-  "timestamp": "hora de los datos"
-}
-Si no hay partidos jugados: {"results": {}, "champion": "", "topScorer": "", "source": "sin datos", "timestamp": ""}`
+Respondé SOLO con JSON sin markdown. Solo incluí los que ya terminaron con resultado definitivo:
+{"results": {"1": {"home": 2, "away": 0}}, "source": "fuente consultada"}
+Si ninguno terminó: {"results": {}, "source": ""}`
 
   const response = await fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json',  },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
+      max_tokens: 500,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -259,17 +253,17 @@ const db = {
   async createUser(alias, pin, phone = '') {
     const { data, error } = await supabase
       .from('users')
-      .insert({ alias: alias.toLowerCase().trim(), pin, phone, avatar: '⚽', predictions: {}, champion: '', top_scorer: '' })
+      .insert({ alias: alias.toLowerCase().trim(), pin, phone, avatar: '⚽', predictions: {} })
       .select()
       .single()
     if (error) throw error
     return data
   },
 
-  async updateUser(alias, predictions, champion, topScorer) {
+  async updateUser(alias, predictions) {
     const { error } = await supabase
       .from('users')
-      .update({ predictions, champion, top_scorer: topScorer })
+      .update({ predictions })
       .eq('alias', alias.toLowerCase().trim())
     if (error) throw error
   },
@@ -285,7 +279,7 @@ const db = {
   async getLeaderboard() {
     const { data, error } = await supabase
       .from('users')
-      .select('alias, predictions, champion, top_scorer, bonus_points, avatar')
+      .select('alias, predictions, bonus_points, avatar')
     if (error) throw error
     return data || []
   },
@@ -293,7 +287,7 @@ const db = {
   async getUserProfile(alias) {
     const { data, error } = await supabase
       .from('users')
-      .select('alias, predictions, champion, top_scorer, bonus_points, avatar')
+      .select('alias, predictions, bonus_points, avatar')
       .eq('alias', alias.toLowerCase().trim())
       .single()
     if (error) throw error
@@ -409,13 +403,11 @@ const db = {
     return data
   },
 
-  async saveOfficialResults({ results, champion, topScorer, syncSource = '', syncError = '', lastSyncedAt = new Date().toISOString() }) {
+  async saveOfficialResults({ results, syncSource = '', syncError = '', lastSyncedAt = new Date().toISOString() }) {
     const { error } = await supabase
       .from('official_results')
       .update({
         results,
-        champion,
-        top_scorer: topScorer,
         sync_source: syncSource,
         sync_error: syncError,
         last_synced_at: lastSyncedAt,
@@ -572,7 +564,7 @@ function MatchReactions({ matchId, alias, hasOfficial }) {
 }
 
 // ─── LEAGUES ──────────────────────────────────────────────────────────────────
-function LeaguesPanel({ myAlias, officialResults, officialChampion, officialTopScorer, onClose }) {
+function LeaguesPanel({ myAlias, officialResults, onClose }) {
   const [leagues, setLeagues] = useState([])
   const [view, setView] = useState('list') // list | create | join | detail
   const [newName, setNewName] = useState('')
@@ -627,7 +619,7 @@ function LeaguesPanel({ myAlias, officialResults, officialChampion, officialTopS
     const scored = filtered.map(u => ({
       alias: u.alias,
       avatar: u.avatar || '⚽',
-      pts: calcScore(u.predictions, u.champion, u.top_scorer, officialResults, officialChampion, officialTopScorer, u.bonus_points || 0),
+      pts: calcScore(u.predictions, officialResults, u.bonus_points || 0),
       played: Object.keys(u.predictions || {}).filter(k => k !== 'knockout' && u.predictions[k]?.home !== undefined).length,
     })).sort((a, b) => b.pts - a.pts)
     setLeagueMembersData(scored)
@@ -889,7 +881,7 @@ function MatchReactionPicker({ matchId, myAlias, toAlias, reactions, onReact }) 
     </div>
   )
 }
-function PlayerProfile({ alias, myAlias, officialResults, officialChampion, officialTopScorer, onClose, onChallenge }) {
+function PlayerProfile({ alias, myAlias, officialResults, onClose, onChallenge }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [reactions, setReactions] = useState([])
@@ -904,8 +896,6 @@ function PlayerProfile({ alias, myAlias, officialResults, officialChampion, offi
         p.avatar = p.avatar || '⚽'
         p.bonus_points = p.bonus_points || 0
         p.predictions = p.predictions || {}
-        p.champion = p.champion || ''
-        p.top_scorer = p.top_scorer || ''
       }
       setProfile(p)
       setReactions(r)
@@ -936,7 +926,7 @@ function PlayerProfile({ alias, myAlias, officialResults, officialChampion, offi
     </div>
   )
 
-  const pts = profile ? calcScore(profile.predictions, profile.champion, profile.top_scorer, officialResults, officialChampion, officialTopScorer, profile.bonus_points) : 0
+  const pts = profile ? calcScore(profile.predictions, officialResults, profile.bonus_points) : 0
   const playedMatches = MATCHES.filter(m => {
     const pred = profile?.predictions?.[m.id]
     return pred && pred.home !== undefined && pred.away !== undefined
@@ -960,18 +950,6 @@ function PlayerProfile({ alias, myAlias, officialResults, officialChampion, offi
           </div>
         </div>
         <div style={{ padding: 20 }}>
-          {/* Champion & scorer */}
-          <div style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 16, display: 'flex', gap: 16 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ color: '#4a5568', fontSize: 11, marginBottom: 4 }}>🏆 Campeón</div>
-              <div style={{ color: profile?.champion ? '#f7c948' : '#2a3040', fontWeight: 700 }}>{profile?.champion || '—'}</div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ color: '#4a5568', fontSize: 11, marginBottom: 4 }}>👟 Goleador</div>
-              <div style={{ color: profile?.top_scorer ? '#f7c948' : '#2a3040', fontWeight: 700 }}>{profile?.top_scorer || '—'}</div>
-            </div>
-          </div>
-
           {/* Badges */}
           {(() => {
             const played = playedMatches.length
@@ -1101,88 +1079,6 @@ function localTime(kickoff) {
 function localDate(kickoff) {
   if (!kickoff) return ''
   return new Date(kickoff).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-}
-
-// ─── PLAYER SEARCH ────────────────────────────────────────────────────────────
-function PlayerSearch({ value, onChange }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
-  const timerRef = useState(null)
-
-  async function search(q) {
-    if (!q.trim() || q.trim().length < 2) { setResults([]); setSearched(false); return }
-    setLoading(true)
-    setSearched(true)
-    try {
-      const response = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 300,
-          messages: [{
-            role: 'user',
-            content: `Buscá jugadores convocados al Mundial 2026 cuyo nombre contenga "${q}". Devolvé SOLO un JSON array con hasta 8 nombres completos, sin markdown, sin texto extra. Ejemplo: ["Lionel Messi","Lautaro Martínez"]. Si no encontrás ninguno devolvé [].`
-          }]
-        }),
-      })
-      const data = await response.json()
-      const text = data.content?.find(b => b.type === 'text')?.text || '[]'
-      const clean = text.replace(/```json|```/g, '').trim()
-      const arr = JSON.parse(clean.match(/\[[\s\S]*\]/)?.[0] || '[]')
-      setResults(Array.isArray(arr) ? arr : [])
-    } catch {
-      setResults([])
-    }
-    setLoading(false)
-  }
-
-  function handleChange(e) {
-    const q = e.target.value
-    setQuery(q)
-    clearTimeout(timerRef[0])
-    timerRef[0] = setTimeout(() => search(q), 600)
-  }
-
-  return (
-    <div>
-      <div style={{ position: 'relative' }}>
-        <input
-          value={query}
-          onChange={handleChange}
-          placeholder="Buscá un jugador... ej: Messi, Mbappé"
-          style={{
-            width: '100%', padding: '12px 16px', background: '#0d1117',
-            border: '1px solid #1e2535', borderRadius: 12, color: '#fff',
-            fontSize: 14, outline: 'none', boxSizing: 'border-box',
-          }}
-        />
-        {loading && <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: '#4a5568', fontSize: 12 }}>🔍</span>}
-      </div>
-      {value && (
-        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ background: 'linear-gradient(90deg,#f7c948,#ff6b35)', color: '#0a0e1a', borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 700 }}>⚽ {value}</span>
-          <button onClick={() => { onChange(''); setQuery(''); setResults([]); setSearched(false) }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: 18 }}>✕</button>
-        </div>
-      )}
-      {searched && !loading && results.length === 0 && (
-        <div style={{ color: '#4a5568', fontSize: 13, marginTop: 8 }}>No se encontraron jugadores</div>
-      )}
-      {results.length > 0 && (
-        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {results.map(p => (
-            <button key={p} onClick={() => { onChange(p); setQuery(''); setResults([]) }} style={{
-              padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: value === p ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
-              color: value === p ? '#0a0e1a' : '#e2e8f0', fontSize: 13, fontWeight: 600,
-            }}>⚽ {p}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ─── VOICE HELPER ─────────────────────────────────────────────────────────────
@@ -1587,8 +1483,6 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
   const [localResults, setLocalResults] = useState({ ...(official?.results || {}) })
-  const [localChampion, setLocalChampion] = useState(official?.champion || '')
-  const [localTopScorer, setLocalTopScorer] = useState(official?.top_scorer || '')
   const [activeGroup, setActiveGroup] = useState('A')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -1604,7 +1498,7 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
 
   async function handleSave() {
     setSaving(true)
-    await onSave({ results: localResults, champion: localChampion, topScorer: localTopScorer })
+    await onSave({ results: localResults })
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000)
   }
 
@@ -1666,22 +1560,6 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
               </div>
             )
           })}
-
-          {/* Champion & scorer */}
-          <div style={{ background: '#0d1117', borderRadius: 12, padding: 16, marginTop: 8, border: '1px solid #1e2535' }}>
-            <div style={{ fontWeight: 700, color: '#fff', marginBottom: 10 }}>Campeón oficial</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-              {ALL_TEAMS.map(t => (
-                <button key={t} onClick={() => setLocalChampion(t === localChampion ? '' : t)} style={{
-                  padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                  background: localChampion === t ? '#f7c948' : '#1e2535',
-                  color: localChampion === t ? '#0a0e1a' : '#8892a0',
-                }}><Flag team={t} size={12} /> {t}</button>
-              ))}
-            </div>
-            <div style={{ fontWeight: 700, color: '#fff', marginBottom: 10 }}>Goleador oficial</div>
-            <PlayerSearch value={localTopScorer} onChange={setLocalTopScorer} />
-          </div>
 
           <button onClick={handleSave} disabled={saving} style={{
             width: '100%', marginTop: 20, padding: '15px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
@@ -1806,8 +1684,6 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('matches')
   const [predictions, setPredictions] = useState({})
-  const [champion, setChampion] = useState('')
-  const [topScorer, setTopScorer] = useState('')
   const [leaderboard, setLeaderboard] = useState([])
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -1855,8 +1731,6 @@ export default function App() {
   useEffect(() => {
     if (user) {
       setPredictions(user.predictions || {})
-      setChampion(user.champion || '')
-      setTopScorer(user.top_scorer || '')
       loadChallenges(user.alias)
     }
   }, [user])
@@ -1916,13 +1790,16 @@ export default function App() {
     if (isSyncing) return
     setIsSyncing(true)
     try {
-      const aiData = await fetchResultsFromAI()
-      const current = forced ? {} : { ...(official?.results || {}) }
+      const aiData = await fetchResultsFromAI(official?.results || {})
+      if (!aiData) {
+        // Nada pendiente para sincronizar, no hace falta llamar a la IA
+        setIsSyncing(false)
+        return
+      }
+      const current = { ...(official?.results || {}) }
       const merged = { ...current, ...aiData.results }
       await db.saveOfficialResults({
         results: merged,
-        champion: aiData.champion || official?.champion || '',
-        topScorer: aiData.topScorer || official?.top_scorer || '',
         syncSource: aiData.source || 'Claude AI',
         syncError: '',
         lastSyncedAt: new Date().toISOString(),
@@ -1931,8 +1808,6 @@ export default function App() {
     } catch (err) {
       await db.saveOfficialResults({
         results: official?.results || {},
-        champion: official?.champion || '',
-        topScorer: official?.top_scorer || '',
         syncSource: official?.sync_source || '',
         syncError: err.message?.slice(0, 100) || 'Error desconocido',
         lastSyncedAt: new Date().toISOString(),
@@ -1951,8 +1826,6 @@ export default function App() {
       const merged = { ...current, ...recent.results }
       await db.saveOfficialResults({
         results: merged,
-        champion: official?.champion || '',
-        topScorer: official?.top_scorer || '',
         syncSource: `⚡ Tiempo real · ${recent.source || 'IA'}`,
         syncError: '',
         lastSyncedAt: new Date().toISOString(),
@@ -1963,9 +1836,9 @@ export default function App() {
     }
   }
 
-  async function handleAdminSave({ results, champion: champ, topScorer: scorer }) {
+  async function handleAdminSave({ results }) {
     await db.saveOfficialResults({
-      results, champion: champ, topScorer: scorer,
+      results,
       syncSource: 'Manual (admin)',
       syncError: '',
       lastSyncedAt: new Date().toISOString(),
@@ -1979,7 +1852,7 @@ export default function App() {
       const allChallenges = await supabase.from('challenges').select('*').then(r => r.data || [])
 
       const scored = rows.map(u => {
-        const pts = calcScore(u.predictions, u.champion, u.top_scorer, official?.results || {}, official?.champion || '', official?.top_scorer || '', u.bonus_points || 0)
+        const pts = calcScore(u.predictions, official?.results || {}, u.bonus_points || 0)
         const played = Object.keys(u.predictions || {}).filter(k => k !== 'knockout' && u.predictions[k]?.home !== undefined).length
         // Count accepted or resolved challenges for this user
         const acceptedChallenges = allChallenges.filter(c =>
@@ -2002,8 +1875,8 @@ export default function App() {
   async function saveAll() {
     setSaving(true)
     try {
-      await db.updateUser(user.alias, predictions, champion, topScorer)
-      setUser(prev => ({ ...prev, predictions, champion, top_scorer: topScorer }))
+      await db.updateUser(user.alias, predictions)
+      setUser(prev => ({ ...prev, predictions }))
       setSaved(true); setTimeout(() => setSaved(false), 2500)
     } catch (e) { alert('Error guardando. Revisá tu conexión.') }
     setSaving(false)
@@ -2021,8 +1894,6 @@ export default function App() {
   }
 
   const officialResults = official?.results || {}
-  const officialChampion = official?.champion || ''
-  const officialTopScorer = official?.top_scorer || ''
   const [viewMode, setViewMode] = useState('date') // 'group' | 'date'
 
   // Sort matches by date for date view
@@ -2041,7 +1912,7 @@ export default function App() {
   })()
 
   const groupMatches = MATCHES.filter(m => m.group === activeGroup)
-  const myScore = calcScore(predictions, champion, topScorer, officialResults, officialChampion, officialTopScorer)
+  const myScore = calcScore(predictions, officialResults)
   const completedPreds = Object.keys(predictions).filter(k => k !== 'knockout').length
 
   if (!user) return <AuthScreen onLogin={setUser} />
@@ -2077,8 +1948,6 @@ export default function App() {
           alias={viewingProfile}
           myAlias={user.alias}
           officialResults={officialResults}
-          officialChampion={officialChampion}
-          officialTopScorer={officialTopScorer}
           onClose={() => setViewingProfile(null)}
           onChallenge={(alias) => { setViewingProfile(null); setChallengingAlias(alias) }}
         />
@@ -2087,8 +1956,6 @@ export default function App() {
         <LeaguesPanel
           myAlias={user.alias}
           officialResults={officialResults}
-          officialChampion={officialChampion}
-          officialTopScorer={officialTopScorer}
           onClose={() => setShowLeagues(false)}
         />
       )}
@@ -2248,50 +2115,6 @@ export default function App() {
             </>)}
           </div>
         )}
-        {tab === 'special' && (
-          <div>
-            <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 20px' }}>Pronósticos Especiales</h2>
-            <div style={S.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <span style={{ fontSize: 28 }}>🏆</span>
-                <div><div style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Campeón del Mundial</div><div style={{ color: '#4a5568', fontSize: 12 }}>+5 puntos si acertás</div></div>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {ALL_TEAMS.map(t => (
-                  <button key={t} onClick={() => setChampion(t)} style={{
-                    padding: '7px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                    background: champion === t ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
-                    color: champion === t ? '#0a0e1a' : '#8892a0',
-                  }}><Flag team={t} size={14} /> {t}</button>
-                ))}
-              </div>
-              {champion && <div style={{ marginTop: 12, color: '#f7c948', fontSize: 14, fontWeight: 700 }}>Tu campeón: <Flag team={champion} /> {champion}</div>}
-              {officialChampion && <div style={{ marginTop: 6, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#00e5a0' }}>{officialChampion}</strong></div>}
-            </div>
-            <div style={S.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <span style={{ fontSize: 28 }}>👟</span>
-                <div><div style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Goleador del Mundial</div><div style={{ color: '#4a5568', fontSize: 12 }}>+3 puntos si acertás</div></div>
-              </div>
-              <PlayerSearch value={topScorer} onChange={setTopScorer} />
-              {topScorer && <div style={{ marginTop: 12, color: '#f7c948', fontSize: 14, fontWeight: 700 }}>Tu goleador: ⚽ {topScorer}</div>}
-              {officialTopScorer && <div style={{ marginTop: 6, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#00e5a0' }}>{officialTopScorer}</strong></div>}
-            </div>
-            <div style={{ ...S.card, background: '#0d1117' }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#8892a0', marginBottom: 12, letterSpacing: 1, textTransform: 'uppercase' }}>Sistema de Puntos</div>
-              {[['✅ Resultado correcto','+1'],['⭐ Marcador exacto','+3'],['🏆 Campeón','+5'],['👟 Goleador','+3']].map(([l,v]) => (
-                <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1e2535' }}>
-                  <span style={{ fontSize: 14 }}>{l}</span><span style={{ color: '#f7c948', fontWeight: 700 }}>{v} pts</span>
-                </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Tu puntaje</span>
-                <ScoreBadge pts={myScore} />
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* KNOCKOUT */}
 
         {/* LEADERBOARD */}
@@ -2349,7 +2172,7 @@ export default function App() {
       </div>
 
       {/* Save button */}
-      {(tab === 'matches' || tab === 'special') && (
+      {tab === 'matches' && (
         <button onClick={saveAll} disabled={saving} style={{
           position: 'fixed', bottom: 70, right: 20, zIndex: 99,
           background: saved ? '#00e5a0' : 'linear-gradient(90deg,#f7c948,#ff6b35)',
@@ -2363,7 +2186,6 @@ export default function App() {
       <div style={S.nav}>
         {[
           { id: 'matches',     icon: '📋', label: 'Partidos'   },
-          { id: 'special',     icon: '🏆', label: 'Especiales' },
           { id: 'leaderboard', icon: '📊', label: 'Posiciones' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={S.navBtn(tab === t.id)}>

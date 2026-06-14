@@ -947,12 +947,12 @@ function ChallengeModal({ myAlias, toAlias, predictions, officialResults, onClos
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 440, border: '1px solid #6366f144' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 440, maxHeight: '85vh', border: '1px solid #6366f144', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
           <div style={{ fontWeight: 800, color: '#fff', fontSize: 16 }}>⚔️ Desafiar a {toAlias}</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
           <p style={{ color: '#8892a0', fontSize: 13, marginBottom: 16 }}>El ganador suma <strong style={{ color: '#f7c948' }}>+1 punto</strong> y el perdedor pierde <strong style={{ color: '#ff6b6b' }}>-1 punto</strong>. Solo podés desafiar en partidos que ya pronosticaste y que no empezaron.</p>
           {availableMatches.length === 0 && <div style={{ color: '#4a5568', textAlign: 'center', padding: 20 }}>No tenés partidos disponibles para desafiar.</div>}
           {availableMatches.map(match => (
@@ -989,14 +989,16 @@ function ChallengeModal({ myAlias, toAlias, predictions, officialResults, onClos
               </div>
             </div>
           )}
-          {!sent && availableMatches.length > 0 && (
+        </div>
+        {!sent && availableMatches.length > 0 && (
+          <div style={{ padding: '16px 20px', borderTop: '1px solid #1e2535', flexShrink: 0 }}>
             <button onClick={sendChallenge} disabled={!selectedMatch || sending} style={{
-              width: '100%', marginTop: 16, padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+              width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
               background: selectedMatch ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' : '#1e2535',
               color: '#fff', fontWeight: 800, fontSize: 15, opacity: sending ? 0.7 : 1,
             }}>{sending ? 'Enviando...' : '⚔️ Enviar desafío'}</button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

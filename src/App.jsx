@@ -1961,7 +1961,7 @@ export default function App() {
 
   const S = {
     app: { minHeight: '100vh', background: 'linear-gradient(160deg, #0a0e1a 0%, #0d1b2e 100%)', fontFamily: "'Inter', sans-serif", color: '#e2e8f0', paddingBottom: 80 },
-    header: { background: '#111827cc', backdropFilter: 'blur(20px)', borderBottom: '1px solid #1e2535', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 },
+    header: { background: '#111827cc', backdropFilter: 'blur(20px)', borderBottom: '1px solid #1e2535', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 8, position: 'sticky', top: 0, zIndex: 100 },
     nav: { position: 'fixed', bottom: 0, left: 0, right: 0, background: '#111827', borderTop: '1px solid #1e2535', display: 'flex', zIndex: 100 },
     navBtn: (a) => ({ flex: 1, padding: '13px 0', border: 'none', cursor: 'pointer', background: 'transparent', color: a ? '#f7c948' : '#4a5568', fontSize: 10, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, borderTop: a ? '2px solid #f7c948' : '2px solid transparent' }),
     card: { background: '#111827', border: '1px solid #1e2535', borderRadius: 16, padding: 16, marginBottom: 12 },
@@ -2054,17 +2054,17 @@ export default function App() {
 
       {/* Header */}
       <div style={S.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src={LOGO_SRC} alt="APPro" style={{ height: 28 }} />
-          <span style={{ background: '#1e2535', color: '#f7c948', fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6, letterSpacing: 1 }}>BETA</span>
-          <button onClick={() => setShowAvatarPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 24, padding: 0 }}>{user.avatar || '⚽'}</button>
-          <span style={{ color: '#4a5568', fontSize: 12 }}>{user.alias}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
+          <img src={LOGO_SRC} alt="APPro" style={{ height: 28, flexShrink: 0 }} />
+          <span style={{ background: '#1e2535', color: '#f7c948', fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6, letterSpacing: 1, flexShrink: 0 }}>BETA</span>
+          <button onClick={() => setShowAvatarPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 24, padding: 0, flexShrink: 0 }}>{user.avatar || '⚽'}</button>
+          <span style={{ color: '#4a5568', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.alias}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
           <ScoreBadge pts={myScore} />
-          <button onClick={() => setShowLeagues(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontSize: 13 }}>🏘️</button>
-          <button onClick={() => setShowAdminLogin(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontSize: 11 }}>⚙</button>
-          <button onClick={() => setUser(null)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontSize: 11 }}>Salir</button>
+          <button onClick={() => setShowLeagues(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13 }}>🏘️</button>
+          <button onClick={() => setShowAdminLogin(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13 }}>⚙</button>
+          <button onClick={() => setUser(null)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13 }}>🚪</button>
         </div>
       </div>
 

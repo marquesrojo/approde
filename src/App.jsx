@@ -2279,7 +2279,6 @@ export default function App() {
               <input type="checkbox" checked={hideFinished} onChange={e => setHideFinished(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#ff6b35' }} />
               <span style={{ color: '#8892a0', fontSize: 13 }}>Ocultar partidos finalizados</span>
             </label>
-            </div>
 
             {/* GROUP VIEW */}
             {viewMode === 'group' && (<>

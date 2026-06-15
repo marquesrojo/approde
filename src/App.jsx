@@ -2091,8 +2091,12 @@ export default function App() {
         <AvatarPicker
           current={user.avatar || '⚽'}
           onSelect={async (avatar) => {
-            await db.updateAvatar(user.alias, avatar)
-            setUser(prev => ({ ...prev, avatar }))
+            setUser(prev => ({ ...prev, avatar })) // optimista, se ve al instante
+            try {
+              await db.updateAvatar(user.alias, avatar)
+            } catch (e) {
+              alert('No se pudo guardar el avatar: ' + e.message)
+            }
           }}
           onClose={() => setShowAvatarPicker(false)}
         />
@@ -2148,7 +2152,9 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
           <img src={LOGO_SRC} alt="APPro" style={{ height: 28, flexShrink: 0 }} />
           <span style={{ background: '#1e2535', color: '#f7c948', fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6, letterSpacing: 1, flexShrink: 0 }}>BETA</span>
-          <button onClick={() => setShowAvatarPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 24, padding: 0, flexShrink: 0 }}>{user.avatar || '⚽'}</button>
+          <button onClick={() => setShowAvatarPicker(true)} title="Cambiar avatar" style={{ background: '#1e2535', border: '1px solid #2a3040', borderRadius: 10, cursor: 'pointer', fontSize: 20, padding: '2px 6px', flexShrink: 0, lineHeight: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            {user.avatar || '⚽'}<span style={{ fontSize: 9, color: '#4a5568' }}>✏️</span>
+          </button>
           <span style={{ color: '#4a5568', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.alias}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>

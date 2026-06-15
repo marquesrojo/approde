@@ -1222,10 +1222,10 @@ Responder SOLO con este JSON, sin texto adicional:
       const result = JSON.parse(jsonMatch[0])
       setAiSuggestion(result)
     } catch (e) {
-      const friendly = /rate.?limit/i.test(e.message)
-        ? '⏳ Mucha demanda en este momento. Probá de nuevo en 5 minutos.'
+      const friendly = /rate.?limit|10,?000|tokens per minute/i.test(e.message)
+        ? '⏳ Mucha demanda en este momento. Probá de nuevo en 1-2 minutos.'
         : 'No se pudo obtener una sugerencia ahora. Probá de nuevo en unos minutos.'
-      setAiSuggestion({ error: friendly })
+      setAiSuggestion({ error: friendly, detail: e.message })
     }
     setAiLoading(false)
   }
@@ -1340,7 +1340,12 @@ Responder SOLO con este JSON, sin texto adicional:
           {aiSuggestion.reasoning && <div style={{ color: '#4a5568', fontSize: 11, lineHeight: 1.5 }}>{aiSuggestion.reasoning}</div>}
         </div>
       )}
-      {aiSuggestion?.error && <div style={{ marginTop: 8, color: '#ff6b6b', fontSize: 12, textAlign: 'center' }}>{aiSuggestion.error}</div>}
+      {aiSuggestion?.error && (
+        <div style={{ marginTop: 8, textAlign: 'center' }}>
+          <div style={{ color: '#ff6b6b', fontSize: 12 }}>{aiSuggestion.error}</div>
+          {aiSuggestion.detail && <div style={{ color: '#3a4150', fontSize: 10, marginTop: 2 }}>{aiSuggestion.detail}</div>}
+        </div>
+      )}
       {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
       {isInPlay && (
         <div style={{ textAlign: 'center', marginTop: 8 }}>
@@ -1582,7 +1587,7 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
+function AdminPanel({ official, onSave, onForceSync, isSyncing, aiSuggestions, onDismissSuggestion, onClose }) {
   const [localResults, setLocalResults] = useState({ ...(official?.results || {}) })
   const [activeGroup, setActiveGroup] = useState('A')
   const [saving, setSaving] = useState(false)
@@ -1595,6 +1600,12 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
   }
   function clearRes(matchId) {
     setLocalResults(prev => { const n = { ...prev }; delete n[matchId]; return n })
+  }
+  function applySuggestion(matchId, result) {
+    setLocalResults(prev => ({ ...prev, [matchId]: { home: result.home, away: result.away } }))
+    const m = MATCHES.find(mm => mm.id === matchId)
+    if (m) setActiveGroup(m.group)
+    onDismissSuggestion(matchId)
   }
 
   async function handleSave() {
@@ -1631,6 +1642,27 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, onClose }) {
               color: '#fff', fontWeight: 700, fontSize: 13,
             }}>{isSyncing ? '🔄 Buscando en la web...' : '⚡ Sincronizar ahora'}</button>
           </div>
+
+          {/* Sugerencias de IA pendientes de confirmar */}
+          {Object.keys(aiSuggestions || {}).length > 0 && (
+            <div style={{ background: '#0d1f2d', borderRadius: 12, padding: 16, marginBottom: 20, border: '1px solid #6366f144' }}>
+              <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 4 }}>🤖 La IA encontró estos resultados</div>
+              <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 10 }}>Revisalos y tocá "Aplicar" para cargarlos abajo. No se guardan solos.</div>
+              {Object.entries(aiSuggestions).map(([id, r]) => {
+                const m = MATCHES.find(mm => mm.id === parseInt(id))
+                if (!m) return null
+                return (
+                  <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                    <span style={{ color: '#e2e8f0', fontSize: 13 }}>{m.home} {r.home} – {r.away} {m.away}</span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => applySuggestion(parseInt(id), r)} style={{ background: '#6366f1', border: 'none', color: '#fff', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✓ Aplicar</button>
+                      <button onClick={() => onDismissSuggestion(parseInt(id))} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* Group tabs */}
           <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 12 }}>✏️ Edición manual</div>
@@ -1792,6 +1824,7 @@ export default function App() {
 
   const [official, setOfficial] = useState(null)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [aiSuggestions, setAiSuggestions] = useState({})
 
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [adminPin, setAdminPin] = useState('')
@@ -1895,9 +1928,10 @@ export default function App() {
     try { const data = await db.getOfficialResults(); setOfficial(data) } catch (e) { console.error('Error cargando resultados oficiales', e) }
   }
 
+  // Busca con IA los resultados de partidos pendientes de hoy y los deja como
+  // SUGERENCIA (aiSuggestions). NUNCA escribe directamente en `results` —
+  // eso solo lo hace el admin al tocar "Guardar" en el Panel Admin.
   async function runAutoSync() {
-    // No sincronizar hasta que los resultados oficiales actuales estén cargados,
-    // para nunca pisar `results` con un objeto vacío/parcial por una condición de carrera.
     if (isSyncing) return
     if (!official) {
       alert('Todavía se están cargando los datos, esperá unos segundos e intentá de nuevo.')
@@ -1917,40 +1951,23 @@ export default function App() {
         return
       }
 
-      let combined = {}
-      let sources = []
-
-      // Fuente: IA con web search
-      try {
-        const aiData = await fetchResultsFromAI(pending)
-        if (aiData && Object.keys(aiData.results).length > 0) {
-          combined = { ...combined, ...aiData.results }
-          sources.push(aiData.source || 'Claude AI')
-        }
-      } catch (e) {
-        console.error('Error IA sync:', e)
+      const aiData = await fetchResultsFromAI(pending)
+      if (aiData && Object.keys(aiData.results).length > 0) {
+        setAiSuggestions(prev => ({ ...prev, ...aiData.results }))
+        await db.updateSyncStatus({
+          syncSource: `Sugerencia IA: ${aiData.source || 'Claude AI'}`,
+          syncError: '',
+          lastSyncedAt: new Date().toISOString(),
+        })
+      } else {
+        await db.updateSyncStatus({
+          syncSource: official?.sync_source || '',
+          syncError: 'La IA no encontró resultados nuevos',
+          lastSyncedAt: new Date().toISOString(),
+        })
       }
-
-      if (Object.keys(combined).length === 0) {
-        // Nada nuevo todavía, no hace falta guardar nada
-        setIsSyncing(false)
-        return
-      }
-
-      // IMPORTANTE: releer el estado MÁS RECIENTE de la base de datos justo antes de
-      // mezclar y guardar, para no pisar cambios hechos por otra sesión/pestaña
-      // mientras esperábamos la respuesta de la IA.
-      const latest = await db.getOfficialResults()
-      const merged = { ...(latest?.results || {}), ...combined }
-      await db.saveOfficialResults({
-        results: merged,
-        syncSource: sources.join(' + ') || 'Desconocido',
-        syncError: '',
-        lastSyncedAt: new Date().toISOString(),
-      })
       await loadOfficial()
     } catch (err) {
-      // IMPORTANTE: nunca tocar `results` desde el manejo de errores
       try {
         await db.updateSyncStatus({
           syncSource: official?.sync_source || '',
@@ -2058,7 +2075,7 @@ export default function App() {
 
   return (
     <div style={S.app}>
-      {showAdminPanel && <AdminPanel official={official} onSave={handleAdminSave} onForceSync={runAutoSync} isSyncing={isSyncing} onClose={() => setShowAdminPanel(false)} />}
+      {showAdminPanel && <AdminPanel official={official} onSave={handleAdminSave} onForceSync={runAutoSync} isSyncing={isSyncing} aiSuggestions={aiSuggestions} onDismissSuggestion={(id) => setAiSuggestions(prev => { const n = { ...prev }; delete n[id]; return n })} onClose={() => setShowAdminPanel(false)} />}
 
       {/* Community Modals */}
       {shareMatch && (

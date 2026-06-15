@@ -351,7 +351,7 @@ const db = {
   },
 
   async deleteChallenge(id) {
-    const { error } = await supabase.from('challenges').delete().eq('id', id)
+    const { error } = await supabase.from('challenges').update({ status: 'cancelled' }).eq('id', id)
     if (error) throw error
   },
 
@@ -1831,14 +1831,14 @@ export default function App() {
     if (user) {
       setPredictions(user.predictions || {})
     }
-  }, [user])
+  }, [user?.alias])
 
   // Re-resolver desafíos cada vez que cambian los resultados oficiales
   useEffect(() => {
     if (user && official) {
       loadChallenges(user.alias)
     }
-  }, [user, official])
+  }, [user?.alias, official])
 
   useEffect(() => { if (tab === 'leaderboard') loadLeaderboard() }, [tab, official])
 

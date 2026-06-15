@@ -2020,6 +2020,7 @@ export default function App() {
         if (aQ && bQ) return b.pts - a.pts
         if (aQ) return -1
         if (bQ) return 1
+        if (b.pts !== a.pts) return b.pts - a.pts
         return b.played - a.played
       })
       setLeaderboard(scored)

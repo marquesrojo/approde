@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase.js'
+import {
+  Mic, Sparkles, TrendingUp, BarChart3, Share2, Save, RefreshCw,
+  Swords, Settings, LogOut, Trophy, Bell, ClipboardList,
+} from 'lucide-react'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '9999'
@@ -898,7 +902,7 @@ function PlayerProfile({ alias, myAlias, officialResults, onClose, onChallenge }
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {myAlias !== alias && (
-              <button onClick={() => onChallenge(alias)} style={{ background: 'linear-gradient(90deg,#6366f1,#8b5cf6)', border: 'none', color: '#fff', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>⚔️ Desafiar</button>
+              <button onClick={() => onChallenge(alias)} style={{ background: 'linear-gradient(90deg,#6366f1,#8b5cf6)', border: 'none', color: '#fff', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Swords size={14}/> Desafiar</span></button>
             )}
             <button onClick={onClose} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 10, padding: '8px 14px', cursor: 'pointer' }}>✕</button>
           </div>
@@ -1026,7 +1030,7 @@ function ChallengeModal({ myAlias, toAlias, predictions, officialResults, onClos
     <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 440, maxHeight: '85vh', border: '1px solid #6366f144', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <div style={{ fontWeight: 800, color: '#fff', fontSize: 16 }}>⚔️ Desafiar a {toAlias}</div>
+          <div style={{ fontWeight: 800, color: '#fff', fontSize: 16, display:'flex', alignItems:'center', gap:8 }}><Swords size={18}/> Desafiar a {toAlias}</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
         <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
@@ -1079,7 +1083,7 @@ function ChallengeModal({ myAlias, toAlias, predictions, officialResults, onClos
               width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
               background: selectedMatch ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' : '#1e2535',
               color: '#fff', fontWeight: 800, fontSize: 15, opacity: sending ? 0.7 : 1,
-            }}>{sending ? 'Enviando...' : '⚔️ Enviar desafío'}</button>
+            }}>{sending ? 'Enviando...' : (<span style={{display:'inline-flex',alignItems:'center',gap:6,justifyContent:'center'}}><Swords size={16}/> Enviar desafío</span>)}</button>
           </div>
         )}
       </div>
@@ -1315,7 +1319,7 @@ Responder SOLO con este JSON, sin texto adicional:
             color: listening ? '#fff' : '#8892a0', fontSize: 12,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <span style={{ fontSize: 14 }}>{listening ? '🔴' : '🎙'}</span>
+            <Mic size={14} />
             {listening ? 'Escuchando...' : 'Dictar'}
           </button>
           {voiceMsg && <span style={{ fontSize: 12, color: voiceMsg.startsWith('✓') ? '#00e5a0' : '#ff6b6b' }}>{voiceMsg}</span>}
@@ -1326,7 +1330,7 @@ Responder SOLO con este JSON, sin texto adicional:
             color: aiLoading ? '#4a5568' : '#a5b4fc', fontSize: 12,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <span style={{ fontSize: 14 }}>🤖</span>
+            <Sparkles size={14} />
             {aiLoading ? 'Analizando...' : 'Sugerencia IA'}
           </button>
           <a
@@ -1337,7 +1341,7 @@ Responder SOLO con este JSON, sin texto adicional:
               background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
               padding: '5px 14px', color: '#8892a0', fontSize: 12,
             }}
-          ><span style={{ fontSize: 14 }}>📈</span> Cuotas</a>
+          ><TrendingUp size={14} /> Cuotas</a>
         </div>
       )}
 
@@ -1372,12 +1376,12 @@ Responder SOLO con este JSON, sin texto adicional:
               background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
               padding: '5px 14px', color: '#8892a0', fontSize: 12,
             }}
-          >📊 Ver resultado en vivo</a>
+          ><BarChart3 size={14} /> Ver resultado en vivo</a>
         </div>
       )}
       {pred.home !== undefined && pred.away !== undefined && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <button onClick={() => S.onShare && S.onShare(match)} style={{ background: 'none', border: '1px solid #1e2535', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 11 }}>📤 Compartir</button>
+          <button onClick={() => S.onShare && S.onShare(match)} style={{ background: 'none', border: '1px solid #1e2535', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}><Share2 size={12} /> Compartir</button>
         </div>
       )}
     </div>
@@ -1504,7 +1508,7 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
     <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 300, overflowY: 'auto', padding: '20px 16px' }}>
       <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 520, margin: '0 auto', border: '1px solid #6366f144' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontWeight: 800, fontSize: 18, color: '#fff' }}>⚔️ Mis Desafíos</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: '#fff', display:'flex', alignItems:'center', gap:8 }}><Swords size={20}/> Mis Desafíos</div>
           <button onClick={onClose} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>✕</button>
         </div>
         <div style={{ padding: 20 }}>
@@ -1513,7 +1517,7 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
           {sent.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ color: '#8892a0', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
-                📤 Enviados ({sent.length})
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Share2 size={14}/> Enviados ({sent.length})</span>
               </div>
               {sent.map(ch => (
                 <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid #1e2535' }}>
@@ -1536,7 +1540,7 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
           {pending.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
-                🔔 Pendientes ({pending.length})
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Bell size={14}/> Pendientes ({pending.length})</span>
               </div>
               {pending.map(ch => {
                 const m = MATCHES.find(mm => mm.id === parseInt(ch.match_id))
@@ -1675,13 +1679,13 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, aiSuggestions, o
               padding: '10px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
               background: isSyncing ? '#1e2535' : 'linear-gradient(90deg,#6366f1,#8b5cf6)',
               color: '#fff', fontWeight: 700, fontSize: 13,
-            }}>{isSyncing ? '🔄 Buscando en la web...' : '⚡ Sincronizar ahora'}</button>
+            }}>{isSyncing ? (<span style={{display:'inline-flex',alignItems:'center',gap:6}}><RefreshCw size={16} className="spin"/> Buscando en la web...</span>) : 'Sincronizar ahora'}</button>
           </div>
 
           {/* Sugerencias de IA pendientes de confirmar */}
           {Object.keys(aiSuggestions || {}).length > 0 && (
             <div style={{ background: '#0d1f2d', borderRadius: 12, padding: 16, marginBottom: 20, border: '1px solid #6366f144' }}>
-              <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 4 }}>🤖 La IA encontró estos resultados</div>
+              <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 4, display:'flex', alignItems:'center', gap:6 }}><Sparkles size={16}/> La IA encontró estos resultados</div>
               <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 10 }}>Revisalos y tocá "Aplicar" para cargarlos abajo. No se guardan solos.</div>
               {Object.entries(aiSuggestions).map(([id, r]) => {
                 const m = MATCHES.find(mm => mm.id === parseInt(id))
@@ -1733,7 +1737,7 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, aiSuggestions, o
             width: '100%', marginTop: 20, padding: '15px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
             background: saved ? '#00e5a0' : 'linear-gradient(90deg,#f7c948,#ff6b35)',
             color: '#0a0e1a', fontSize: 16, fontWeight: 800,
-          }}>{saving ? 'Guardando...' : saved ? '✓ Guardado' : '💾 Guardar resultados'}</button>
+          }}>{saving ? 'Guardando...' : saved ? '✓ Guardado' : (<span style={{display:'inline-flex',alignItems:'center',gap:6}}><Save size={16}/> Guardar resultados</span>)}</button>
         </div>
       </div>
     </div>
@@ -2088,6 +2092,7 @@ export default function App() {
   const officialResults = official?.results || {}
   const [viewMode, setViewMode] = useState('date') // 'group' | 'date'
   const [hideFinished, setHideFinished] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Sort matches by date for date view
   // Group matches by LOCAL date derived from kickoff
@@ -2227,8 +2232,8 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
           <ScoreBadge pts={myScore} />
           <button onClick={() => setShowLeagues(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13 }}>🏘️</button>
-          <button onClick={() => setShowAdminLogin(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13 }}>⚙</button>
-          <button onClick={() => setUser(null)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13 }}>🚪</button>
+          <button onClick={() => setShowAdminLogin(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13, display:'flex', alignItems:'center' }}><Settings size={14}/></button>
+          <button onClick={() => setUser(null)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13, display:'flex', alignItems:'center' }}><LogOut size={14}/></button>
         </div>
       </div>
 
@@ -2240,7 +2245,7 @@ export default function App() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
         }}>
           <span style={{ color: '#a5b4fc', fontSize: 13, fontWeight: 700 }}>
-            🤖 La IA encontró {Object.keys(aiSuggestions).length} resultado{Object.keys(aiSuggestions).length > 1 ? 's' : ''} nuevo{Object.keys(aiSuggestions).length > 1 ? 's' : ''}
+            <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Sparkles size={14}/> La IA encontró {Object.keys(aiSuggestions).length} resultado{Object.keys(aiSuggestions).length > 1 ? 's' : ''} nuevo{Object.keys(aiSuggestions).length > 1 ? 's' : ''}</span>
           </span>
           <span style={{ color: '#6366f1', fontSize: 12, fontWeight: 700 }}>Revisar →</span>
         </div>
@@ -2266,9 +2271,15 @@ export default function App() {
         {/* MATCHES */}
         {tab === 'matches' && (
           <div>
-            <div style={{ marginBottom: 16 }}>
-              <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 4px' }}>Partidos</h2>
-              <p style={{ color: '#4a5568', fontSize: 13, margin: 0 }}>{completedPreds} / {MATCHES.length} grupos pronosticados</p>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 4px' }}>Partidos</h2>
+                <p style={{ color: '#4a5568', fontSize: 13, margin: 0 }}>{completedPreds} / {MATCHES.length} grupos pronosticados</p>
+              </div>
+              <button onClick={async () => { setRefreshing(true); await loadOfficial(); setRefreshing(false) }} disabled={refreshing} style={{
+                background: '#1e2535', border: '1px solid #2a3040', borderRadius: 10, padding: '6px 12px',
+                color: '#8892a0', fontSize: 12, cursor: 'pointer', flexShrink: 0,
+              }}><span style={{display:'inline-flex',alignItems:'center',gap:6}}><RefreshCw size={13} className={refreshing ? 'spin' : ''}/> Actualizar</span></button>
             </div>
             <div style={{ height: 4, background: '#1e2535', borderRadius: 4, marginBottom: 16, overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#f7c948,#ff6b35)', width: `${(completedPreds / MATCHES.length) * 100}%`, transition: 'width .4s' }} />
@@ -2315,7 +2326,7 @@ export default function App() {
                   background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
                   padding: '5px 14px', color: '#8892a0', fontSize: 12, marginBottom: 16,
                 }}
-              >📊 Ver tabla actualizada del Grupo {activeGroup}</a>
+              ><BarChart3 size={14} /> Ver tabla actualizada del Grupo {activeGroup}</a>
               <div></div>
               {groupMatches.filter(m => !hideFinished || !officialResults[m.id]).map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
 
@@ -2361,7 +2372,7 @@ export default function App() {
               <button onClick={loadLeaderboard} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>🔄</button>
             </div>
             <div style={{ background: '#0d1117', borderRadius: 12, padding: '10px 14px', marginBottom: 16, border: '1px solid #1e2535' }}>
-              <div style={{ color: '#4a5568', fontSize: 12 }}>🏆 Top <strong style={{ color: '#f7c948' }}>20 mejores partidos</strong> · Mínimo <strong style={{ color: '#f7c948' }}>20 pronosticados</strong> y <strong style={{ color: '#f7c948' }}>2 desafíos aceptados</strong> para clasificar.</div>
+              <div style={{ color: '#4a5568', fontSize: 12 }}><span style={{display:'inline-flex',alignItems:'center',gap:4}}><Trophy size={14}/> Top</span> <strong style={{ color: '#f7c948' }}>20 mejores partidos</strong> · Mínimo <strong style={{ color: '#f7c948' }}>20 pronosticados</strong> y <strong style={{ color: '#f7c948' }}>2 desafíos aceptados</strong> para clasificar.</div>
               <div style={{ color: '#3a4150', fontSize: 11, marginTop: 6 }}>Las posiciones de quienes todavía no clasificaron son provisorias y pueden cambiar.</div>
             </div>
             {leaderboard.length === 0 && <div style={{ textAlign: 'center', color: '#4a5568', padding: 40 }}>Sin jugadores aún...</div>}
@@ -2416,21 +2427,21 @@ export default function App() {
           color: '#0a0e1a', border: 'none', borderRadius: 50, padding: '14px 22px',
           fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: '0 8px 24px #00000060',
           opacity: saving ? 0.7 : 1,
-        }}>{saving ? 'Guardando...' : saved ? '✓ Guardado' : '💾 Guardar'}</button>
+        }}>{saving ? 'Guardando...' : saved ? '✓ Guardado' : (<span style={{display:'inline-flex',alignItems:'center',gap:6,justifyContent:'center'}}><Save size={16}/> Guardar</span>)}</button>
       )}
 
       {/* Bottom nav */}
       <div style={S.nav}>
         {[
-          { id: 'matches',     icon: '📋', label: 'Partidos'   },
-          { id: 'leaderboard', icon: '📊', label: 'Posiciones' },
+          { id: 'matches',     Icon: ClipboardList, label: 'Partidos'   },
+          { id: 'leaderboard', Icon: BarChart3,      label: 'Posiciones' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={S.navBtn(tab === t.id)}>
-            <span style={{ fontSize: 18 }}>{t.icon}</span>{t.label}
+            <t.Icon size={18} />{t.label}
           </button>
         ))}
         <button onClick={() => setShowChallenges(true)} style={{ ...S.navBtn(false), position: 'relative' }}>
-          <span style={{ fontSize: 18 }}>⚔️</span>
+          <Swords size={18} />
           Desafíos
           {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 0 && (
             <span style={{ position: 'absolute', top: 8, right: '50%', transform: 'translateX(8px)', background: '#ff6b35', borderRadius: '50%', width: 16, height: 16, fontSize: 10, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

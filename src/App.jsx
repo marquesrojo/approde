@@ -350,6 +350,11 @@ const db = {
     if (error) throw error
   },
 
+  async deleteChallenge(id) {
+    const { error } = await supabase.from('challenges').delete().eq('id', id)
+    if (error) throw error
+  },
+
   async getOfficialResults() {
     const { data, error } = await supabase
       .from('official_results')
@@ -1217,7 +1222,10 @@ Responder SOLO con este JSON, sin texto adicional:
       const result = JSON.parse(jsonMatch[0])
       setAiSuggestion(result)
     } catch (e) {
-      setAiSuggestion({ error: `Error: ${e.message}` })
+      const friendly = /rate.?limit/i.test(e.message)
+        ? '⏳ Mucha demanda en este momento. Probá de nuevo en 5 minutos.'
+        : 'No se pudo obtener una sugerencia ahora. Probá de nuevo en unos minutos.'
+      setAiSuggestion({ error: friendly })
     }
     setAiLoading(false)
   }
@@ -1484,7 +1492,10 @@ function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClo
                       <div style={{ fontWeight: 700, color: '#fff', fontSize: 13 }}>Desafiaste a {ch.to_alias}</div>
                       <div style={{ color: '#4a5568', fontSize: 12, marginTop: 2 }}>{matchName(ch.match_id)}</div>
                     </div>
-                    <span style={{ background: '#f7c94822', color: '#f7c948', borderRadius: 10, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>⏳ Esperando</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ background: '#f7c94822', color: '#f7c948', borderRadius: 10, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>⏳ Esperando</span>
+                      <button onClick={() => onAccept(ch.id, 'cancel')} title="Cancelar desafío" style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }}>🗑️</button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2093,6 +2104,7 @@ export default function App() {
           officialResults={officialResults}
           onAccept={async (id, action) => {
             if (action === 'accept') await db.acceptChallenge(id)
+            else if (action === 'cancel') await db.deleteChallenge(id)
             else await supabase.from('challenges').update({ status: 'rejected' }).eq('id', id)
             await loadChallenges(user.alias)
           }}

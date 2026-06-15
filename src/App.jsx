@@ -1853,6 +1853,7 @@ export default function App() {
   const [aiSuggestions, setAiSuggestions] = useState({})
 
   const [showAdminLogin, setShowAdminLogin] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [adminPin, setAdminPin] = useState('')
   const [adminError, setAdminError] = useState('')
   const [showAdminPanel, setShowAdminPanel] = useState(false)
@@ -2071,12 +2072,13 @@ export default function App() {
 
   function handleAdminLogin() {
     if (!official) { setAdminError('Cargando datos... esperá unos segundos e intentá de nuevo'); return }
-    if (adminPin === ADMIN_PIN) { setShowAdminLogin(false); setShowAdminPanel(true); setAdminPin(''); setAdminError('') }
+    if (adminPin === ADMIN_PIN) { setShowAdminLogin(false); setShowAdminPanel(true); setIsAdmin(true); setAdminPin(''); setAdminError('') }
     else setAdminError('PIN incorrecto')
   }
 
   const officialResults = official?.results || {}
   const [viewMode, setViewMode] = useState('date') // 'group' | 'date'
+  const [hideFinished, setHideFinished] = useState(false)
 
   // Sort matches by date for date view
   // Group matches by LOCAL date derived from kickoff
@@ -2087,7 +2089,9 @@ export default function App() {
       if (!groups[d]) groups[d] = []
       groups[d].push(m)
     })
-    // Sort by kickoff time
+    // Sort matches within each date by kickoff time
+    Object.values(groups).forEach(arr => arr.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)))
+    // Sort dates by their first match's kickoff time
     return Object.entries(groups)
       .sort((a, b) => new Date(a[1][0].kickoff) - new Date(b[1][0].kickoff))
       .map(([date, matches]) => ({ date, matches }))
@@ -2219,10 +2223,10 @@ export default function App() {
         </div>
       </div>
 
-      <SyncBar official={official} isSyncing={isSyncing} />
+      {isAdmin && <SyncBar official={official} isSyncing={isSyncing} />}
 
-      {Object.keys(aiSuggestions).length > 0 && (
-        <div onClick={() => setShowAdminLogin(true)} style={{
+      {isAdmin && Object.keys(aiSuggestions).length > 0 && (
+        <div onClick={() => setShowAdminPanel(true)} style={{
           background: '#6366f122', borderBottom: '1px solid #6366f144', padding: '10px 16px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
         }}>
@@ -2262,7 +2266,7 @@ export default function App() {
             </div>
 
             {/* View toggle */}
-            <div style={{ display: 'flex', background: '#0a0e1a', borderRadius: 12, padding: 4, marginBottom: 16 }}>
+            <div style={{ display: 'flex', background: '#0a0e1a', borderRadius: 12, padding: 4, marginBottom: 12 }}>
               {[['group','🏟 Por Grupo'],['date','📅 Por Fecha']].map(([mode, label]) => (
                 <button key={mode} onClick={() => setViewMode(mode)} style={{
                   flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
@@ -2270,6 +2274,11 @@ export default function App() {
                   color: viewMode === mode ? '#0a0e1a' : '#5a6070',
                 }}>{label}</button>
               ))}
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, cursor: 'pointer', userSelect: 'none' }}>
+              <input type="checkbox" checked={hideFinished} onChange={e => setHideFinished(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#ff6b35' }} />
+              <span style={{ color: '#8892a0', fontSize: 13 }}>Ocultar partidos finalizados</span>
+            </label>
             </div>
 
             {/* GROUP VIEW */}
@@ -2300,7 +2309,7 @@ export default function App() {
                 }}
               >📊 Ver tabla actualizada del Grupo {activeGroup}</a>
               <div></div>
-              {groupMatches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
+              {groupMatches.filter(m => !hideFinished || !officialResults[m.id]).map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
 
               {/* Knockout section in group view */}
               <div style={{ marginTop: 24, marginBottom: 16, paddingTop: 20, borderTop: '2px solid #1e2535' }}>
@@ -2312,14 +2321,17 @@ export default function App() {
 
             {/* DATE VIEW — grupos + eliminatorias cronológico */}
             {viewMode === 'date' && (<>
-              {matchesByDate.map(({ date, matches }) => (
+              {matchesByDate.map(({ date, matches }) => {
+                const visible = matches.filter(m => !hideFinished || !officialResults[m.id])
+                if (visible.length === 0) return null
+                return (
                 <div key={date}>
                   <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 4, paddingBottom: 6, borderBottom: '1px solid #1e2535' }}>
                     📅 {date}
                   </div>
-                  {matches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} showGroup />)}
+                  {visible.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} showGroup />)}
                 </div>
-              ))}
+              )})}
 
               {/* Eliminatorias a continuación */}
               <div style={{ marginTop: 8 }}>

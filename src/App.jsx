@@ -2306,6 +2306,7 @@ export default function App() {
             </div>
             <div style={{ background: '#0d1117', borderRadius: 12, padding: '10px 14px', marginBottom: 16, border: '1px solid #1e2535' }}>
               <div style={{ color: '#4a5568', fontSize: 12 }}>🏆 Top <strong style={{ color: '#f7c948' }}>20 mejores partidos</strong> · Mínimo <strong style={{ color: '#f7c948' }}>20 pronosticados</strong> y <strong style={{ color: '#f7c948' }}>2 desafíos aceptados</strong> para clasificar.</div>
+              <div style={{ color: '#3a4150', fontSize: 11, marginTop: 6 }}>Las posiciones de quienes todavía no clasificaron son provisorias y pueden cambiar.</div>
             </div>
             {leaderboard.length === 0 && <div style={{ textAlign: 'center', color: '#4a5568', padding: 40 }}>Sin jugadores aún...</div>}
             {leaderboard.map((row, i) => {
@@ -2324,7 +2325,7 @@ export default function App() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontWeight: 900, fontSize: 15,
                   color: !qualified ? '#4a5568' : rankPos < 3 ? '#0a0e1a' : '#4a5568',
-                }}>{qualified ? rankPos + 1 : '—'}</div>
+                }}>{i + 1}</div>
                 <span style={{ fontSize: 22, flexShrink: 0 }}>{row.avatar || '⚽'}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: row.alias === user.alias ? '#f7c948' : '#e2e8f0' }}>

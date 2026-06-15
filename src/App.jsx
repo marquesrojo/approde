@@ -1222,9 +1222,14 @@ Responder SOLO con este JSON, sin texto adicional:
       const result = JSON.parse(jsonMatch[0])
       setAiSuggestion(result)
     } catch (e) {
-      const friendly = /rate.?limit|10,?000|tokens per minute/i.test(e.message)
-        ? '⏳ Mucha demanda en este momento. Probá de nuevo en 1-2 minutos.'
-        : 'No se pudo obtener una sugerencia ahora. Probá de nuevo en unos minutos.'
+      let friendly
+      if (/credit balance/i.test(e.message)) {
+        friendly = '⚠️ Función IA no disponible temporalmente. Probá más tarde.'
+      } else if (/rate.?limit|10,?000|tokens per minute/i.test(e.message)) {
+        friendly = '⏳ Mucha demanda en este momento. Probá de nuevo en 1-2 minutos.'
+      } else {
+        friendly = 'No se pudo obtener una sugerencia ahora. Probá de nuevo en unos minutos.'
+      }
       setAiSuggestion({ error: friendly, detail: e.message })
     }
     setAiLoading(false)
@@ -2257,13 +2262,23 @@ export default function App() {
                   }}>Grupo {g}</button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                 {GROUPS[activeGroup]?.map(t => (
                   <span key={t} style={{ background: '#1e2535', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#8892a0' }}>
                     <Flag team={t} size={13} /> {t}
                   </span>
                 ))}
               </div>
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent(`Grupo ${activeGroup} Mundial 2026 tabla de posiciones`)}`}
+                target="_blank" rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+                  background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+                  padding: '5px 14px', color: '#8892a0', fontSize: 12, marginBottom: 16,
+                }}
+              >📊 Ver tabla actualizada del Grupo {activeGroup}</a>
+              <div></div>
               {groupMatches.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
 
               {/* Knockout section in group view */}

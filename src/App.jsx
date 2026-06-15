@@ -800,12 +800,14 @@ function PlayerProfile({ alias, myAlias, officialResults, onClose, onChallenge }
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [reactions, setReactions] = useState([])
+  const [challenges, setChallenges] = useState([])
 
   useEffect(() => {
     Promise.all([
       db.getUserProfile(alias),
       db.getPlayerReactions(alias),
-    ]).then(([p, r]) => {
+      db.getChallenges(alias),
+    ]).then(([p, r, c]) => {
       // Ensure default values for columns that may not exist on older users
       if (p) {
         p.avatar = p.avatar || '⚽'
@@ -814,6 +816,7 @@ function PlayerProfile({ alias, myAlias, officialResults, onClose, onChallenge }
       }
       setProfile(p)
       setReactions(r)
+      setChallenges(c || [])
       setLoading(false)
     }).catch((e) => {
       console.error('Error loading profile:', e)
@@ -847,6 +850,33 @@ function PlayerProfile({ alias, myAlias, officialResults, onClose, onChallenge }
     return pred && pred.home !== undefined && pred.away !== undefined
   })
 
+  // Resumen: desglose de puntos por partido (solo los que ya tienen resultado oficial)
+  const matchBreakdown = playedMatches.map(m => {
+    const pred = profile.predictions[m.id]
+    const off = officialResults[m.id]
+    if (!off) return null
+    const predRes = pred.home > pred.away ? 'H' : pred.home < pred.away ? 'A' : 'D'
+    const offRes = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
+    let p = 0
+    if (predRes === offRes) p += 1
+    if (pred.home === off.home && pred.away === off.away) p += 3
+    if (p === 0) return null
+    return { match: m, pts: p }
+  }).filter(Boolean).sort((a, b) => b.pts - a.pts)
+
+  const top20 = matchBreakdown.slice(0, 20)
+  const droppedExtra = matchBreakdown.slice(20)
+  const matchPtsTotal = top20.reduce((s, x) => s + x.pts, 0)
+
+  // Resumen: desafíos resueltos que afectan el bonus de este jugador
+  const resolvedChallenges = challenges.filter(c => c.status === 'resolved' && c.winner_alias && c.winner_alias !== 'tie')
+  const challengeBreakdown = resolvedChallenges.map(c => {
+    const rival = c.from_alias === alias ? c.to_alias : c.from_alias
+    const won = c.winner_alias === alias
+    const m = MATCHES.find(mm => mm.id === parseInt(c.match_id))
+    return { rival, won, match: m, id: c.id }
+  })
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 300, overflowY: 'auto', padding: '20px 16px' }}>
       <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 600, margin: '0 auto', border: '1px solid #1e2535' }}>
@@ -855,7 +885,11 @@ function PlayerProfile({ alias, myAlias, officialResults, onClose, onChallenge }
             <div style={{ fontWeight: 700, color: '#fff', marginBottom: 6 }}>👤 {alias}</div>
             <div style={{ fontSize: 40, marginBottom: 8 }}>{profile?.avatar || '⚽'}</div>
             <ScoreBadge pts={pts} />
-            {(profile?.bonus_points || 0) > 0 && <span style={{ marginLeft: 8, color: '#f7c948', fontSize: 12 }}>+{profile.bonus_points} bonus</span>}
+            {(profile?.bonus_points || 0) !== 0 && (
+              <span style={{ marginLeft: 8, color: profile.bonus_points > 0 ? '#f7c948' : '#ff6b6b', fontSize: 12 }}>
+                {profile.bonus_points > 0 ? '+' : ''}{profile.bonus_points} bonus
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {myAlias !== alias && (
@@ -865,6 +899,44 @@ function PlayerProfile({ alias, myAlias, officialResults, onClose, onChallenge }
           </div>
         </div>
         <div style={{ padding: 20 }}>
+          {/* Resumen del puntaje */}
+          {(matchBreakdown.length > 0 || challengeBreakdown.length > 0) && (
+            <div style={{ marginBottom: 16, background: '#0d1117', border: '1px solid #1e2535', borderRadius: 12, padding: 14 }}>
+              <div style={{ color: '#4a5568', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>📋 Resumen del puntaje</div>
+
+              {top20.length > 0 && (
+                <>
+                  <div style={{ color: '#8892a0', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Pronósticos: <span style={{ color: '#00e5a0' }}>+{matchPtsTotal} pts</span></div>
+                  {top20.map(({ match, pts: p }) => (
+                    <div key={match.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#8892a0', padding: '3px 0' }}>
+                      <span>{match.home} vs {match.away}</span>
+                      <span style={{ color: p === 4 ? '#00e5a0' : '#f7c948', fontWeight: 700 }}>{p === 4 ? '⭐ +4' : '+1'}</span>
+                    </div>
+                  ))}
+                  {droppedExtra.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#4a5568', marginTop: 4 }}>
+                      + {droppedExtra.length} acierto(s) más no contabilizado(s) (solo cuentan los mejores 20)
+                    </div>
+                  )}
+                </>
+              )}
+
+              {challengeBreakdown.length > 0 && (
+                <>
+                  <div style={{ color: '#8892a0', fontSize: 12, fontWeight: 700, margin: '10px 0 6px' }}>
+                    Desafíos: <span style={{ color: (profile.bonus_points || 0) >= 0 ? '#f7c948' : '#ff6b6b' }}>{(profile.bonus_points || 0) >= 0 ? '+' : ''}{profile.bonus_points || 0} pts</span>
+                  </div>
+                  {challengeBreakdown.map(c => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#8892a0', padding: '3px 0' }}>
+                      <span>vs {c.rival}{c.match ? ` (${c.match.home} vs ${c.match.away})` : ''}</span>
+                      <span style={{ color: c.won ? '#00e5a0' : '#ff6b6b', fontWeight: 700 }}>{c.won ? '🏆 +1' : '😔 -1'}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Badges */}
           {(() => {
             const played = playedMatches.length
@@ -1802,6 +1874,9 @@ export default function App() {
       // Reload after resolving
       const fresh = await db.getChallenges(alias)
       setChallenges(fresh)
+      // Refrescar bonus_points propio en caso de que algún desafío se haya resuelto ahora
+      const myProfile = await db.getUserProfile(alias)
+      if (myProfile) setUser(prev => prev ? { ...prev, bonus_points: myProfile.bonus_points || 0 } : prev)
     } catch (e) { console.error('Error cargando desafíos', e) }
   }
 
@@ -1954,7 +2029,7 @@ export default function App() {
   })()
 
   const groupMatches = MATCHES.filter(m => m.group === activeGroup)
-  const myScore = calcScore(predictions, officialResults)
+  const myScore = calcScore(predictions, officialResults, user?.bonus_points || 0)
   const completedPreds = Object.keys(predictions).filter(k => k !== 'knockout').length
 
   if (!user) return <AuthScreen onLogin={setUser} />

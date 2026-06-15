@@ -1329,6 +1329,15 @@ Responder SOLO con este JSON, sin texto adicional:
             <span style={{ fontSize: 14 }}>🤖</span>
             {aiLoading ? 'Analizando...' : 'Sugerencia IA'}
           </button>
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(`${match.home} vs ${match.away} pronóstico cuotas apuestas Mundial 2026`)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+              background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+              padding: '5px 14px', color: '#8892a0', fontSize: 12,
+            }}
+          ><span style={{ fontSize: 14 }}>📈</span> Cuotas</a>
         </div>
       )}
 

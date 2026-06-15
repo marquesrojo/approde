@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase.js'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -1860,6 +1860,16 @@ export default function App() {
     return () => clearInterval(interval)
   }, [])
 
+  // Al abrir la app (cuando official termina de cargar por primera vez),
+  // buscar si hay resultados nuevos para avisar con el banner.
+  const checkedOnOpenRef = useRef(false)
+  useEffect(() => {
+    if (official && !checkedOnOpenRef.current) {
+      checkedOnOpenRef.current = true
+      runAutoSync()
+    }
+  }, [official])
+
   useEffect(() => {
     if (user) {
       setPredictions(user.predictions || {})
@@ -2183,6 +2193,18 @@ export default function App() {
       </div>
 
       <SyncBar official={official} isSyncing={isSyncing} />
+
+      {Object.keys(aiSuggestions).length > 0 && (
+        <div onClick={() => setShowAdminLogin(true)} style={{
+          background: '#6366f122', borderBottom: '1px solid #6366f144', padding: '10px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
+        }}>
+          <span style={{ color: '#a5b4fc', fontSize: 13, fontWeight: 700 }}>
+            🤖 La IA encontró {Object.keys(aiSuggestions).length} resultado{Object.keys(aiSuggestions).length > 1 ? 's' : ''} nuevo{Object.keys(aiSuggestions).length > 1 ? 's' : ''}
+          </span>
+          <span style={{ color: '#6366f1', fontSize: 12, fontWeight: 700 }}>Revisar →</span>
+        </div>
+      )}
 
       {/* Challenges banner */}
       {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 0 && (

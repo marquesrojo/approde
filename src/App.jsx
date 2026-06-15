@@ -2103,10 +2103,14 @@ export default function App() {
           myAlias={user.alias}
           officialResults={officialResults}
           onAccept={async (id, action) => {
-            if (action === 'accept') await db.acceptChallenge(id)
-            else if (action === 'cancel') await db.deleteChallenge(id)
-            else await supabase.from('challenges').update({ status: 'rejected' }).eq('id', id)
-            await loadChallenges(user.alias)
+            try {
+              if (action === 'accept') await db.acceptChallenge(id)
+              else if (action === 'cancel') await db.deleteChallenge(id)
+              else await supabase.from('challenges').update({ status: 'rejected' }).eq('id', id)
+              await loadChallenges(user.alias)
+            } catch (e) {
+              alert('Error: ' + e.message)
+            }
           }}
           onClose={() => setShowChallenges(false)}
         />

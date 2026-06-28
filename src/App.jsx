@@ -2129,13 +2129,11 @@ export default function App() {
   const matchesByDate = (() => {
     const groups = {}
     MATCHES.forEach(m => {
-      const d = m.kickoff ? localDate(m.kickoff) : m.date
+      const d = m.date // usar siempre el campo date definido en el fixture
       if (!groups[d]) groups[d] = []
       groups[d].push(m)
     })
-    // Sort matches within each date by kickoff time
     Object.values(groups).forEach(arr => arr.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)))
-    // Sort dates by their first match's kickoff time
     return Object.entries(groups)
       .sort((a, b) => new Date(a[1][0].kickoff) - new Date(b[1][0].kickoff))
       .map(([date, matches]) => ({ date, matches }))

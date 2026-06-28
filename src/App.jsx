@@ -154,6 +154,7 @@ const FLAG_EMOJIS = {
   'Sudáfrica':'🇿🇦','Rep. Checa':'🇨🇿','Haití':'🇭🇹','Paraguay':'🇵🇾',
   'Costa de Marfil':'🇨🇮','Curazao':'🇨🇼','Túnez':'🇹🇳','Ucrania':'🇺🇦',
   'Nueva Zelanda':'🇳🇿','Cabo Verde':'🇨🇻','Bolivia':'🇧🇴','Jordania':'🇯🇴',
+  'Bosnia':'🇧🇦','Suecia':'🇸🇪','Irak':'🇮🇶',
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────

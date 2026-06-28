@@ -1216,4 +1216,1279 @@ function MatchCard({ match, predictions, officialResults, setPred, S, showGroup 
   const now = Date.now()
   const kickoffMs = match.kickoff ? new Date(match.kickoff).getTime() : null
   const isLocked = off || (kickoffMs && now > kickoffMs + 10 * 60 * 1000)
-  const isInPlay = k
+  const isInPlay = kickoffMs && now >= kickoffMs && !off
+  const minutesLeftToEdit = isInPlay && !isLocked ? Math.ceil((kickoffMs + 10 * 60 * 1000 - now) / 60000) : null
+  const isKickoffSoon = kickoffMs && now > kickoffMs - 30 * 60 * 1000 && now < kickoffMs
+  const hasOfficial = !!off
+  const [listening, setListening] = useState(false)
+  const [voiceMsg, setVoiceMsg] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState(null)
+
+  async function getAIPrediction() {
+    setAiLoading(true)
+    setAiSuggestion(null)
+    try {
+      const response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 800,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{
+            role: 'user',
+            content: `Pronóstico Mundial 2026: ${match.home} vs ${match.away}. Considerá ranking FIFA, forma reciente y contexto. Buscá info breve y respondé YA.
+
+Responder SOLO con este JSON, sin texto adicional:
+{"home": 2, "away": 1, "reasoning": "máx 2 oraciones en español"}`
+          }]
+        }),
+      })
+      const data = await response.json()
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error))
+      const text = data.content?.find(b => b.type === 'text')?.text || ''
+      const clean = text.replace(/```json|```/g, '').trim()
+      const jsonMatch = clean.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('La IA no devolvió una respuesta a tiempo. Probá de nuevo.')
+      const result = JSON.parse(jsonMatch[0])
+      setAiSuggestion(result)
+    } catch (e) {
+      let friendly
+      if (/credit balance/i.test(e.message)) {
+        friendly = '⚠️ Función IA no disponible temporalmente. Probá más tarde.'
+      } else if (/rate.?limit|10,?000|tokens per minute/i.test(e.message)) {
+        friendly = '⏳ Mucha demanda en este momento. Probá de nuevo en 1-2 minutos.'
+      } else {
+        friendly = 'No se pudo obtener una sugerencia ahora. Probá de nuevo en unos minutos.'
+      }
+      setAiSuggestion({ error: friendly, detail: e.message })
+    }
+    setAiLoading(false)
+  }
+
+  function applyAISuggestion() {
+    if (!aiSuggestion || aiSuggestion.error) return
+    setPred(match.id, 'home', String(aiSuggestion.home))
+    setPred(match.id, 'away', String(aiSuggestion.away))
+    setAiSuggestion(null)
+  }
+
+  let predResult = null, offResult = null
+  if (pred.home !== undefined && pred.away !== undefined)
+    predResult = pred.home > pred.away ? 'H' : pred.home < pred.away ? 'A' : 'D'
+  if (off) offResult = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
+  const correct = off && predResult === offResult
+  const exact = off && pred.home === off.home && pred.away === off.away
+
+  function startVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) { setVoiceMsg('Tu navegador no soporta voz'); setTimeout(() => setVoiceMsg(''), 2500); return }
+    const rec = new SpeechRecognition()
+    rec.lang = 'es-AR'
+    rec.interimResults = false
+    rec.maxAlternatives = 3
+    setListening(true)
+    setVoiceMsg('🎙 Escuchando...')
+    rec.onresult = (e) => {
+      const transcripts = Array.from(e.results[0]).map(r => r.transcript)
+      let parsed = null
+      for (const t of transcripts) { parsed = parseVoiceScore(t, match.home, match.away); if (parsed) break }
+      if (parsed) {
+        setPred(match.id, 'home', String(parsed.home))
+        setPred(match.id, 'away', String(parsed.away))
+        setVoiceMsg(`✓ ${parsed.home} - ${parsed.away}`)
+      } else {
+        setVoiceMsg(`No entendí "${transcripts[0]}"`)
+      }
+      setTimeout(() => setVoiceMsg(''), 2500)
+      setListening(false)
+    }
+    rec.onerror = () => { setVoiceMsg('Error de micrófono'); setListening(false); setTimeout(() => setVoiceMsg(''), 2500) }
+    rec.onend = () => setListening(false)
+    rec.start()
+  }
+
+  return (
+    <div style={{ ...S.card, borderColor: exact ? '#00e5a044' : correct ? '#f7c94844' : '#1e2535' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ color: '#4a5568', fontSize: 11 }}>
+          {showGroup ? (match.group === '16' ? '16avos · ' : `Grupo ${match.group} · `) : ''}{match.kickoff ? localDate(match.kickoff) : match.date}
+          {match.kickoff && <span style={{ color: isKickoffSoon ? '#f7c948' : '#4a5568', fontWeight: isKickoffSoon ? 700 : 400 }}> · {localTime(match.kickoff)}</span>}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isInPlay && <span style={{ background: '#00e5a022', color: '#00e5a0', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}><span style={{ display: 'inline-block', animation: 'livePulse 1.4s ease-in-out infinite' }}>🔴</span> En juego</span>}
+          {isKickoffSoon && <span style={{ background: '#f7c94822', color: '#f7c948', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>⏰ ¡Pronto!</span>}
+          {exact && <span style={{ color: '#00e5a0', fontSize: 12, fontWeight: 700 }}>⭐ Exacto +3</span>}
+          {correct && !exact && <span style={{ color: '#f7c948', fontSize: 12, fontWeight: 700 }}>✓ Resultado +1</span>}
+          {hasOfficial && !correct && predResult !== null && <span style={{ color: '#ff6b6b', fontSize: 12 }}>✗ Sin puntos</span>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ flex: 1, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.home} /> {match.home}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input type="number" min="0" max="20" style={{...S.input, opacity: isLocked ? 0.5 : 1}} value={pred.home ?? ''} onChange={e => setPred(match.id, 'home', e.target.value)} disabled={isLocked} placeholder="–" />
+          <span style={{ color: '#4a5568', fontWeight: 700 }}>:</span>
+          <input type="number" min="0" max="20" style={{...S.input, opacity: isLocked ? 0.5 : 1}} value={pred.away ?? ''} onChange={e => setPred(match.id, 'away', e.target.value)} disabled={isLocked} placeholder="–" />
+        </div>
+        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}><Flag team={match.away} /> {match.away}</div>
+      </div>
+      {minutesLeftToEdit !== null && (
+        <div style={{ textAlign: 'center', marginTop: 8, color: '#00e5a0', fontSize: 11 }}>
+          🔴 ¡Ya arrancó! Podés editar {minutesLeftToEdit} min más
+        </div>
+      )}
+      {!isLocked && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <button onClick={startVoice} disabled={listening} style={{
+            background: listening ? '#6366f1' : '#1e2535',
+            border: `1px solid ${listening ? '#6366f1' : '#2a3040'}`,
+            borderRadius: 20, padding: '5px 14px', cursor: 'pointer',
+            color: listening ? '#fff' : '#8892a0', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Mic size={14} />
+            {listening ? 'Escuchando...' : 'Dictar'}
+          </button>
+          {voiceMsg && <span style={{ fontSize: 12, color: voiceMsg.startsWith('✓') ? '#00e5a0' : '#ff6b6b' }}>{voiceMsg}</span>}
+          <button onClick={getAIPrediction} disabled={aiLoading} style={{
+            background: aiLoading ? '#1e2535' : '#0d1f2d',
+            border: '1px solid #6366f144',
+            borderRadius: 20, padding: '5px 14px', cursor: 'pointer',
+            color: aiLoading ? '#4a5568' : '#a5b4fc', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Sparkles size={14} />
+            {aiLoading ? 'Analizando...' : 'Sugerencia IA'}
+          </button>
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(`${match.home} vs ${match.away} pronóstico cuotas apuestas Mundial 2026`)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+              background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+              padding: '5px 14px', color: '#8892a0', fontSize: 12,
+            }}
+          ><TrendingUp size={14} /> Cuotas</a>
+        </div>
+      )}
+
+      {/* AI Suggestion */}
+      {aiSuggestion && !aiSuggestion.error && (
+        <div style={{ marginTop: 10, background: '#0d1f2d', borderRadius: 10, padding: 12, border: '1px solid #6366f144' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ color: '#a5b4fc', fontSize: 12, fontWeight: 700 }}>🤖 Pronóstico IA: {aiSuggestion.home} – {aiSuggestion.away}</span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={applyAISuggestion} style={{ background: '#6366f1', border: 'none', color: '#fff', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Usar</button>
+              <button onClick={() => setAiSuggestion(null)} style={{ background: 'none', border: '1px solid #1e2535', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 11 }}>✕</button>
+            </div>
+          </div>
+          {aiSuggestion.reasoning && <div style={{ color: '#4a5568', fontSize: 11, lineHeight: 1.5 }}>{aiSuggestion.reasoning}</div>}
+        </div>
+      )}
+      {aiSuggestion?.error && (
+        <div style={{ marginTop: 8, textAlign: 'center' }}>
+          <div style={{ color: '#ff6b6b', fontSize: 12 }}>{aiSuggestion.error}</div>
+          {aiSuggestion.detail && <div style={{ color: '#3a4150', fontSize: 10, marginTop: 2 }}>{aiSuggestion.detail}</div>}
+        </div>
+      )}
+      {hasOfficial && <div style={{ textAlign: 'center', marginTop: 10, color: '#4a5568', fontSize: 12 }}>Oficial: <strong style={{ color: '#fff' }}>{off.home} – {off.away}</strong></div>}
+      {isInPlay && (
+        <div style={{ textAlign: 'center', marginTop: 8 }}>
+          <div style={{ color: '#00e5a0', fontSize: 11, marginBottom: 6 }}><span style={{ display: 'inline-block', animation: 'livePulse 1.4s ease-in-out infinite' }}>🔴</span> Partido en juego — pronóstico cerrado</div>
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(`${match.home} vs ${match.away} resultado en vivo`)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+              background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+              padding: '5px 14px', color: '#8892a0', fontSize: 12,
+            }}
+          ><BarChart3 size={14} /> Ver resultado en vivo</a>
+        </div>
+      )}
+      {pred.home !== undefined && pred.away !== undefined && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button onClick={() => S.onShare && S.onShare(match)} style={{ background: 'none', border: '1px solid #1e2535', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}><Share2 size={12} /> Compartir</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
+function AuthScreen({ onLogin }) {
+  const [mode, setMode] = useState('login')
+  const [alias, setAlias] = useState('')
+  const [pin, setPin] = useState('')
+  const [phone, setPhone] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit() {
+    if (!alias.trim() || pin.length !== 4) { setError('Ingresá un alias y un PIN de 4 dígitos.'); return }
+    if (mode === 'register' && !phone.trim()) { setError('Ingresá tu número de teléfono.'); return }
+    setLoading(true); setError('')
+    try {
+      if (mode === 'register') {
+        const existing = await db.getUser(alias)
+        if (existing) { setError('Ese alias ya existe. Probá con otro.'); setLoading(false); return }
+        const user = await db.createUser(alias, pin, phone)
+        onLogin(user)
+      } else {
+        const user = await db.getUser(alias)
+        if (!user) { setError('Alias no encontrado. ¿Querés registrarte?'); setLoading(false); return }
+        if (user.pin !== pin) { setError('PIN incorrecto.'); setLoading(false); return }
+        onLogin(user)
+      }
+    } catch (e) {
+      setError('Error de conexión. Revisá tu internet.')
+    }
+    setLoading(false)
+  }
+
+  const inputStyle = { width: '100%', marginTop: 8, padding: '13px 16px', background: '#0d1117', border: '1px solid #1e2535', borderRadius: 12, color: '#fff', fontSize: 15, outline: 'none', boxSizing: 'border-box' }
+  const labelStyle = { color: '#8892a0', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #0d1b2e 50%, #0a1628 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ width: '100%', maxWidth: 420, padding: '0 20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <img src={LOGO_SRC} alt="APPro" style={{ height: 48, marginBottom: 8 }} />
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ background: '#1e2535', color: '#f7c948', fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, letterSpacing: 1 }}>BETA</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 28 }}>⚽</span>
+            <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, margin: 0, background: 'linear-gradient(90deg, #f7c948, #ff6b35)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Prode 2026</h1>
+          </div>
+          <p style={{ color: '#5a6070', fontSize: 13, margin: 0 }}>Mundial USA · México · Canadá</p>
+        </div>
+        <div style={{ background: '#111827', borderRadius: 20, padding: 28, border: '1px solid #1e2535', boxShadow: '0 24px 64px #00000060' }}>
+          <div style={{ display: 'flex', background: '#0a0e1a', borderRadius: 12, padding: 4, marginBottom: 24 }}>
+            {['login', 'register'].map(m => (
+              <button key={m} onClick={() => { setMode(m); setError('') }} style={{
+                flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14,
+                background: mode === m ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : 'transparent',
+                color: mode === m ? '#0a0e1a' : '#5a6070',
+              }}>{m === 'login' ? 'Ingresar' : 'Registrarse'}</button>
+            ))}
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Alias</label>
+            <input value={alias} onChange={e => setAlias(e.target.value)} placeholder="Tu nombre de jugador"
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>PIN (4 dígitos)</label>
+            <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="••••" type="password" inputMode="numeric"
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              style={{ ...inputStyle, fontSize: 20, letterSpacing: 8 }} />
+          </div>
+          {mode === 'register' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Teléfono <span style={{ color: '#f7c948' }}>*</span></label>
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+54 9 11 1234-5678"
+                type="tel" inputMode="tel"
+                onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={inputStyle} />
+              <p style={{ color: '#4a5568', fontSize: 11, marginTop: 6 }}>📞 Lo usaremos para contactarte si ganás</p>
+            </div>
+          )}
+          {error && <div style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 16, background: '#ff6b6b11', borderRadius: 8, padding: '10px 14px' }}>{error}</div>}
+          <button onClick={handleSubmit} disabled={loading} style={{
+            width: '100%', padding: '15px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(90deg,#f7c948,#ff6b35)', color: '#0a0e1a', fontSize: 16, fontWeight: 800, opacity: loading ? 0.7 : 1, marginTop: 4,
+          }}>{loading ? 'Conectando...' : mode === 'login' ? 'Entrar al Prode' : 'Crear mi cuenta'}</button>
+        </div>
+        <p style={{ textAlign: 'center', color: '#2a3040', fontSize: 12, marginTop: 16 }}>
+          🏆 Resultado +1 · Exacto +3 · Campeón +5 · Goleador +3
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ─── CHALLENGES INBOX ─────────────────────────────────────────────────────────
+function ChallengesInbox({ challenges, myAlias, officialResults, onAccept, onClose }) {
+  const pending  = challenges.filter(c => c.to_alias === myAlias && c.status === 'pending')
+  const sent     = challenges.filter(c => c.from_alias === myAlias && c.status === 'pending')
+  const active   = challenges.filter(c => c.status === 'accepted')
+  const resolved = challenges.filter(c => c.status === 'resolved')
+  const [challengerPreds, setChallengerPreds] = useState({})
+
+  useEffect(() => {
+    const aliases = [...new Set(pending.map(c => c.from_alias))]
+    aliases.forEach(alias => {
+      if (challengerPreds[alias]) return
+      db.getUserProfile(alias).then(p => {
+        setChallengerPreds(prev => ({ ...prev, [alias]: p?.predictions || {} }))
+      }).catch(() => {})
+    })
+  }, [pending.map(c => c.from_alias).join(',')])
+
+  function matchName(matchId) {
+    const m = MATCHES.find(m => m.id === parseInt(matchId))
+    return m ? `${FLAG_EMOJIS[m.home] || ''} ${m.home} vs ${m.away} ${FLAG_EMOJIS[m.away] || ''}` : `Partido #${matchId}`
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#000000dd', zIndex: 300, overflowY: 'auto', padding: '20px 16px' }}>
+      <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 520, margin: '0 auto', border: '1px solid #6366f144' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: '#fff', display:'flex', alignItems:'center', gap:8 }}><Swords size={20}/> Mis Desafíos</div>
+          <button onClick={onClose} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ padding: 20 }}>
+
+          {/* Sent */}
+          {sent.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: '#8892a0', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Share2 size={14}/> Enviados ({sent.length})</span>
+              </div>
+              {sent.map(ch => (
+                <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid #1e2535' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#fff', fontSize: 13 }}>Desafiaste a {ch.to_alias}</div>
+                      <div style={{ color: '#4a5568', fontSize: 12, marginTop: 2 }}>{matchName(ch.match_id)}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ background: '#f7c94822', color: '#f7c948', borderRadius: 10, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>⏳ Esperando</span>
+                      <button onClick={() => onAccept(ch.id, 'cancel')} title="Cancelar desafío" style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }}>🗑️</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pending */}
+          {pending.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Bell size={14}/> Pendientes ({pending.length})</span>
+              </div>
+              {pending.map(ch => {
+                const m = MATCHES.find(mm => mm.id === parseInt(ch.match_id))
+                const theirPred = challengerPreds[ch.from_alias]?.[ch.match_id]
+                return (
+                <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 16, marginBottom: 10, border: '1px solid #f7c94833' }}>
+                  <div style={{ fontWeight: 700, color: '#fff', marginBottom: 4 }}>{ch.from_alias} te desafió</div>
+                  <div style={{ color: '#8892a0', fontSize: 13, marginBottom: 8 }}>{matchName(ch.match_id)}</div>
+                  {theirPred && theirPred.home !== undefined ? (
+                    <div style={{ background: '#1a1030', border: '1px solid #6366f133', borderRadius: 8, padding: '6px 10px', marginBottom: 12, fontSize: 12, color: '#a5b4fc' }}>
+                      🔮 {ch.from_alias} pronosticó: {m ? <Flag team={m.home} size={13}/> : ''} {theirPred.home} – {theirPred.away} {m ? <Flag team={m.away} size={13}/> : ''}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 12 }}>{ch.from_alias} todavía no pronosticó este partido.</div>
+                  )}
+                  <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 12 }}>El ganador suma <strong style={{ color: '#f7c948' }}>+1 punto bonus</strong></div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => onAccept(ch.id, 'accept')} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700 }}>✓ Aceptar</button>
+                    <button onClick={() => onAccept(ch.id, 'reject')} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #1e2535', cursor: 'pointer', background: 'none', color: '#4a5568', fontWeight: 700 }}>✗ Rechazar</button>
+                  </div>
+                </div>
+              )})}
+            </div>
+          )}
+
+          {/* Active */}
+          {active.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: '#00e5a0', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>⚡ En curso ({active.length})</div>
+              {active.map(ch => {
+                const rival = ch.from_alias === myAlias ? ch.to_alias : ch.from_alias
+                const off = officialResults[ch.match_id]
+                return (
+                  <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid #00e5a022' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#fff', fontSize: 13 }}>vs {rival}</div>
+                        <div style={{ color: '#4a5568', fontSize: 12 }}>{matchName(ch.match_id)}</div>
+                      </div>
+                      {off ? <span style={{ color: '#f7c948', fontSize: 12 }}>⏳ Calculando...</span>
+                           : <span style={{ color: '#00e5a0', fontSize: 12 }}><span style={{ display: 'inline-block', animation: 'livePulse 1.4s ease-in-out infinite' }}>🔴</span> En juego</span>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Resolved */}
+          {resolved.length > 0 && (
+            <div>
+              <div style={{ color: '#4a5568', fontWeight: 700, fontSize: 13, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>Historial</div>
+              {resolved.map(ch => {
+                const rival = ch.from_alias === myAlias ? ch.to_alias : ch.from_alias
+                const iWon = ch.winner_alias === myAlias
+                const tie = ch.winner_alias === 'tie'
+                return (
+                  <div key={ch.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 8, border: `1px solid ${iWon ? '#00e5a033' : tie ? '#1e2535' : '#ff6b6b22'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#fff', fontSize: 13 }}>vs {rival}</div>
+                        <div style={{ color: '#4a5568', fontSize: 12 }}>{matchName(ch.match_id)}</div>
+                      </div>
+                      <span style={{ fontWeight: 800, fontSize: 14, color: iWon ? '#00e5a0' : tie ? '#4a5568' : '#ff6b6b' }}>
+                        {iWon ? '🏆 +1 pts' : tie ? '🤝 Empate' : '😔 -1 pts'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {challenges.length === 0 && (
+            <div style={{ textAlign: 'center', color: '#4a5568', padding: 30 }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>⚔️</div>
+              Sin desafíos todavía. Desafiá a alguien desde el ranking.
+            </div>
+          )}        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+function AdminPanel({ official, onSave, onForceSync, isSyncing, aiSuggestions, onDismissSuggestion, onClose }) {
+  const [localResults, setLocalResults] = useState({ ...(official?.results || {}) })
+  const [activeGroup, setActiveGroup] = useState('A')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  function setRes(matchId, side, val) {
+    const num = parseInt(val)
+    if (isNaN(num) || num < 0) return
+    setLocalResults(prev => ({ ...prev, [matchId]: { ...prev[matchId], [side]: num } }))
+  }
+  function clearRes(matchId) {
+    setLocalResults(prev => { const n = { ...prev }; delete n[matchId]; return n })
+  }
+  function applySuggestion(matchId, result) {
+    setLocalResults(prev => ({ ...prev, [matchId]: { home: result.home, away: result.away } }))
+    const m = MATCHES.find(mm => mm.id === matchId)
+    if (m) setActiveGroup(m.group)
+    onDismissSuggestion(matchId)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await onSave({ results: localResults })
+    setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000)
+  }
+
+  const groupMatches = MATCHES.filter(m => m.group === activeGroup)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#000000cc', zIndex: 200, overflowY: 'auto', padding: '20px 16px', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ background: '#111827', borderRadius: 20, width: '100%', maxWidth: 600, height: 'fit-content', border: '1px solid #ff6b3544' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e2535', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ color: '#ff6b35', fontWeight: 800, fontSize: 16 }}>🔐 Panel Admin</div>
+            <div style={{ color: '#4a5568', fontSize: 12, marginTop: 2 }}>Resultados oficiales</div>
+          </div>
+          <button onClick={onClose} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>✕ Cerrar</button>
+        </div>
+        <div style={{ padding: 20 }}>
+          {/* Auto-sync */}
+          <div style={{ background: '#0d1117', borderRadius: 12, padding: 16, marginBottom: 20, border: '1px solid #1e2535' }}>
+            <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 8 }}>🤖 Sincronización automática (cada 1 hora)</div>
+            <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 12 }}>
+              {official?.last_synced_at
+                ? `Última sync: ${new Date(official.last_synced_at).toLocaleString('es-AR')} · ${official.sync_source || '—'}`
+                : 'Sin sincronización registrada'}
+            </div>
+            {official?.sync_error && <div style={{ color: '#ff6b6b', fontSize: 12, marginBottom: 10 }}>⚠ {official.sync_error}</div>}
+            <button onClick={onForceSync} disabled={isSyncing} style={{
+              padding: '10px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: isSyncing ? '#1e2535' : 'linear-gradient(90deg,#6366f1,#8b5cf6)',
+              color: '#fff', fontWeight: 700, fontSize: 13,
+            }}>{isSyncing ? (<span style={{display:'inline-flex',alignItems:'center',gap:6}}><RefreshCw size={16} className="spin"/> Buscando en la web...</span>) : 'Sincronizar ahora'}</button>
+          </div>
+
+          {/* Sugerencias de IA pendientes de confirmar */}
+          {Object.keys(aiSuggestions || {}).length > 0 && (
+            <div style={{ background: '#0d1f2d', borderRadius: 12, padding: 16, marginBottom: 20, border: '1px solid #6366f144' }}>
+              <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 4, display:'flex', alignItems:'center', gap:6 }}><Sparkles size={16}/> La IA encontró estos resultados</div>
+              <div style={{ color: '#4a5568', fontSize: 12, marginBottom: 10 }}>Revisalos y tocá "Aplicar" para cargarlos abajo. No se guardan solos.</div>
+              {Object.entries(aiSuggestions).map(([id, r]) => {
+                const m = MATCHES.find(mm => mm.id === parseInt(id))
+                if (!m) return null
+                return (
+                  <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                    <span style={{ color: '#e2e8f0', fontSize: 13 }}>{m.home} {r.home} – {r.away} {m.away}</span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => applySuggestion(parseInt(id), r)} style={{ background: '#6366f1', border: 'none', color: '#fff', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✓ Aplicar</button>
+                      <button onClick={() => onDismissSuggestion(parseInt(id))} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Group tabs */}
+          <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 12 }}>✏️ Edición manual</div>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
+            {Object.keys(GROUPS).map(g => {
+              const lbl = g === '16' ? '⚔️' : 'Grp ' + g
+              return (<button key={g} onClick={() => setActiveGroup(g)} style={{
+                padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, flexShrink: 0,
+                background: activeGroup === g ? '#ff6b35' : '#1e2535',
+                color: activeGroup === g ? '#fff' : '#8892a0',
+              }}>{lbl}</button>)
+            })}
+          </div>
+
+          {groupMatches.map(match => {
+            const res = localResults[match.id]
+            return (
+              <div key={match.id} style={{ background: '#0d1117', borderRadius: 12, padding: 14, marginBottom: 10, border: '1px solid #1e2535' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ flex: 1, fontSize: 13, color: '#e2e8f0', textAlign: 'right' }}><Flag team={match.home} size={14} /> {match.home}</span>
+                  <input type="number" min="0" max="20" value={res?.home ?? ''} onChange={e => setRes(match.id, 'home', e.target.value)} placeholder="–"
+                    style={{ width: 44, textAlign: 'center', padding: '8px 0', background: '#1e2535', border: '1px solid #2a3040', borderRadius: 8, color: '#fff', fontSize: 16, fontWeight: 700, outline: 'none' }} />
+                  <span style={{ color: '#4a5568' }}>:</span>
+                  <input type="number" min="0" max="20" value={res?.away ?? ''} onChange={e => setRes(match.id, 'away', e.target.value)} placeholder="–"
+                    style={{ width: 44, textAlign: 'center', padding: '8px 0', background: '#1e2535', border: '1px solid #2a3040', borderRadius: 8, color: '#fff', fontSize: 16, fontWeight: 700, outline: 'none' }} />
+                  <span style={{ flex: 1, fontSize: 13, color: '#e2e8f0' }}><Flag team={match.away} size={14} /> {match.away}</span>
+                  {res && <button onClick={() => clearRes(match.id)} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: 16 }}>✕</button>}
+                </div>
+              </div>
+            )
+          })}
+
+          <button onClick={handleSave} disabled={saving} style={{
+            width: '100%', marginTop: 20, padding: '15px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+            background: saved ? '#00e5a0' : 'linear-gradient(90deg,#f7c948,#ff6b35)',
+            color: '#0a0e1a', fontSize: 16, fontWeight: 800,
+          }}>{saving ? 'Guardando...' : saved ? '✓ Guardado' : (<span style={{display:'inline-flex',alignItems:'center',gap:6}}><Save size={16}/> Guardar resultados</span>)}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+// ─── KNOCKOUT SECTION ─────────────────────────────────────────────────────────
+function KnockoutSection({ predictions, setPredictions }) {
+  const ROUNDS = [
+    {
+      round: 'R32', label: '16avos de Final', date: '28 Jun – 3 Jul', icon: '⚡',
+      matches: [
+        { id: 'p73',  label: '2°A vs 2°B',           date: '28 Jun' },
+        { id: 'p74',  label: '1°E vs 3°(A/B/C/D/F)', date: '29 Jun' },
+        { id: 'p75',  label: '1°F vs 2°C',           date: '29 Jun' },
+        { id: 'p76',  label: '1°C vs 2°F',           date: '29 Jun' },
+        { id: 'p77',  label: '1°I vs 3°(C/D/F/G/H)', date: '30 Jun' },
+        { id: 'p78',  label: '2°E vs 2°I',           date: '30 Jun' },
+        { id: 'p79',  label: '1°A vs 3°(C/E/F/H/I)', date: '30 Jun' },
+        { id: 'p80',  label: '1°L vs 3°(E/H/I/J/K)', date: '1 Jul'  },
+        { id: 'p81',  label: '1°D vs 3°(B/E/F/I/J)', date: '1 Jul'  },
+        { id: 'p82',  label: '1°G vs 3°(A/E/H/I/J)', date: '1 Jul'  },
+        { id: 'p83',  label: '2°K vs 2°L',           date: '2 Jul'  },
+        { id: 'p84',  label: '1°H vs 2°J',           date: '2 Jul'  },
+        { id: 'p85',  label: '1°B vs 3°(E/F/G/I/J)', date: '2 Jul'  },
+        { id: 'p86',  label: '1°J vs 2°H',           date: '3 Jul'  },
+        { id: 'p87',  label: '1°K vs 3°(D/E/I/J/L)', date: '3 Jul'  },
+        { id: 'p88',  label: '2°D vs 2°G',           date: '3 Jul'  },
+      ],
+    },
+    {
+      round: 'R16', label: 'Octavos de Final', date: '4 – 7 Jul', icon: '🔥',
+      matches: [
+        { id: 'p89', label: 'W73 vs W75', date: '4 Jul' },
+        { id: 'p90', label: 'W74 vs W77', date: '4 Jul' },
+        { id: 'p91', label: 'W76 vs W78', date: '5 Jul' },
+        { id: 'p92', label: 'W79 vs W80', date: '5 Jul' },
+        { id: 'p93', label: 'W83 vs W84', date: '6 Jul' },
+        { id: 'p94', label: 'W81 vs W82', date: '6 Jul' },
+        { id: 'p95', label: 'W86 vs W88', date: '7 Jul' },
+        { id: 'p96', label: 'W85 vs W87', date: '7 Jul' },
+      ],
+    },
+    {
+      round: 'QF', label: 'Cuartos de Final', date: '9 – 11 Jul', icon: '💥',
+      matches: [
+        { id: 'p97',  label: 'W89 vs W90', date: '9 Jul'  },
+        { id: 'p98',  label: 'W93 vs W94', date: '10 Jul' },
+        { id: 'p99',  label: 'W91 vs W92', date: '11 Jul' },
+        { id: 'p100', label: 'W95 vs W96', date: '11 Jul' },
+      ],
+    },
+    {
+      round: 'SF', label: 'Semifinales', date: '14 – 15 Jul', icon: '🌟',
+      matches: [
+        { id: 'p101', label: 'W97 vs W98',   date: '14 Jul' },
+        { id: 'p102', label: 'W99 vs W100',  date: '15 Jul' },
+      ],
+    },
+    {
+      round: 'F', label: '🏆 Final', date: '19 Jul · MetLife Stadium', icon: '🏆',
+      matches: [{ id: 'p104', label: 'W101 vs W102', date: '19 Jul' }],
+    },
+  ]
+
+  return (
+    <div>
+      {ROUNDS.map(({ round, label, date, icon, matches }) => {
+        const roundPreds = (predictions['knockout'] || {})[round] || {}
+        const filled = Object.values(roundPreds).filter(Boolean).length
+        return (
+          <div key={round} style={{ background: '#111827', border: '1px solid #1e2535', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>{icon}</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: '#fff' }}>{label}</div>
+                  <div style={{ color: '#4a5568', fontSize: 12 }}>{date}</div>
+                </div>
+              </div>
+              <div style={{ color: filled === matches.length ? '#00e5a0' : '#4a5568', fontSize: 12, fontWeight: 700 }}>
+                {filled}/{matches.length}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {matches.map(({ id, label: ml, date: md }) => {
+                const val = roundPreds[id] || ''
+                return (
+                  <div key={id}>
+                    <div style={{ color: '#4a5568', fontSize: 11, marginBottom: 4 }}>{ml} · {md}</div>
+                    <select value={val}
+                      onChange={e => {
+                        const updated = { ...predictions }
+                        if (!updated['knockout']) updated['knockout'] = {}
+                        if (!updated['knockout'][round]) updated['knockout'][round] = {}
+                        updated['knockout'][round][id] = e.target.value
+                        setPredictions(updated)
+                      }}
+                      style={{ width: '100%', padding: '10px 14px', background: val ? '#0d1f0d' : '#0d1117', border: `1px solid ${val ? '#00e5a044' : '#1e2535'}`, borderRadius: 10, color: val ? '#00e5a0' : '#8892a0', fontSize: 14, outline: 'none' }}>
+                      <option value="">— Ganador —</option>
+                      {ALL_TEAMS.map(t => <option key={t} value={t}>{FLAG_EMOJIS[t] || ''} {t}</option>)}
+                    </select>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function App() {
+  const [user, setUser] = useState(null)
+  const [tab, setTab] = useState('matches')
+  const [predictions, setPredictions] = useState({})
+  const [leaderboard, setLeaderboard] = useState([])
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [activeGroup, setActiveGroup] = useState('A')
+
+  const [official, setOfficial] = useState(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [aiSuggestions, setAiSuggestions] = useState({})
+
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminPin, setAdminPin] = useState('')
+  const [adminError, setAdminError] = useState('')
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
+
+  // Community state
+  const [shareMatch, setShareMatch] = useState(null)
+  const [viewingProfile, setViewingProfile] = useState(null)
+  const [challengingAlias, setChallengingAlias] = useState(null)
+  const [challenges, setChallenges] = useState([])
+  const [showChallenges, setShowChallenges] = useState(false)
+  const [showLeagues, setShowLeagues] = useState(false)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+
+  // Auto-join league from URL param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ligaCode = params.get('liga')
+    if (ligaCode && user) {
+      db.getLeagueByCode(ligaCode).then(league => {
+        if (league) db.joinLeague(league.id, user.alias)
+      })
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [user])
+
+  // Load official results on mount.
+  // NOTA: el auto-sync con IA (cada 15 min + al abrir la app) está
+  // desactivado temporalmente por consumo de tokens. El sync ahora
+  // solo se dispara manualmente desde "Sincronizar ahora" en el Panel Admin.
+  useEffect(() => {
+    loadOfficial()
+  }, [])
+
+  useEffect(() => {
+    if (user) {
+      setPredictions(user.predictions || {})
+    }
+  }, [user?.alias])
+
+  // Re-resolver desafíos cada vez que cambian los resultados oficiales
+  useEffect(() => {
+    if (user && official) {
+      loadChallenges(user.alias)
+    }
+  }, [user?.alias, official])
+
+  useEffect(() => { if (tab === 'leaderboard') loadLeaderboard() }, [tab, official])
+
+  async function loadChallenges(alias) {
+    try {
+      const data = await db.getChallenges(alias)
+      setChallenges(data)
+      // Auto-resolve challenges with official results
+      for (const ch of data) {
+        if (ch.status === 'accepted' && !ch.winner_alias) {
+          const off = official?.results?.[ch.match_id]
+          if (!off) continue
+          // Get both users' predictions
+          const fromUser = await db.getUserProfile(ch.from_alias)
+          const toUser = await db.getUserProfile(ch.to_alias)
+          const fromPred = fromUser?.predictions?.[ch.match_id]
+          const toPred = toUser?.predictions?.[ch.match_id]
+          if (!fromPred || !toPred) continue
+          const offRes = off.home > off.away ? 'H' : off.home < off.away ? 'A' : 'D'
+          const fromRes = fromPred.home > fromPred.away ? 'H' : fromPred.home < fromPred.away ? 'A' : 'D'
+          const toRes = toPred.home > toPred.away ? 'H' : toPred.home < toPred.away ? 'A' : 'D'
+          const fromCorrect = fromRes === offRes
+          const toCorrect = toRes === offRes
+          // Exact match beats result match
+          const fromExact = fromPred.home === off.home && fromPred.away === off.away
+          const toExact = toPred.home === off.home && toPred.away === off.away
+          let winner = ''
+          if (fromExact && !toExact) winner = ch.from_alias
+          else if (toExact && !fromExact) winner = ch.to_alias
+          else if (fromCorrect && !toCorrect) winner = ch.from_alias
+          else if (toCorrect && !fromCorrect) winner = ch.to_alias
+          // tie = no bonus
+          if (winner) {
+            const loser = winner === ch.from_alias ? ch.to_alias : ch.from_alias
+            await supabase.from('challenges').update({ winner_alias: winner, status: 'resolved' }).eq('id', ch.id)
+            await db.addBonusPoint(winner)
+            await db.subtractBonusPoint(loser)
+          } else {
+            // Empate: ambos acertaron por igual (incluyendo el caso de que ambos fallaron)
+            await supabase.from('challenges').update({ winner_alias: 'tie', status: 'resolved' }).eq('id', ch.id)
+          }
+        }
+      }
+      // Reload after resolving
+      const fresh = await db.getChallenges(alias)
+      setChallenges(fresh)
+      // Refrescar bonus_points propio en caso de que algún desafío se haya resuelto ahora
+      const myProfile = await db.getUserProfile(alias)
+      if (myProfile) setUser(prev => prev ? { ...prev, bonus_points: myProfile.bonus_points || 0 } : prev)
+    } catch (e) { console.error('Error cargando desafíos', e) }
+  }
+
+  async function loadOfficial() {
+    try { const data = await db.getOfficialResults(); setOfficial(data) } catch (e) { console.error('Error cargando resultados oficiales', e) }
+  }
+
+  // Busca con IA los resultados de partidos pendientes de hoy y los deja como
+  // SUGERENCIA (aiSuggestions). NUNCA escribe directamente en `results` —
+  // eso solo lo hace el admin al tocar "Guardar" en el Panel Admin.
+  async function runAutoSync() {
+    if (isSyncing) return
+    if (!official) {
+      alert('Todavía se están cargando los datos, esperá unos segundos e intentá de nuevo.')
+      return
+    }
+    setIsSyncing(true)
+    try {
+      const pending = getPendingTodayMatches(official.results || {})
+      if (pending.length === 0) {
+        await db.updateSyncStatus({
+          syncSource: 'Sin partidos pendientes de hoy',
+          syncError: '',
+          lastSyncedAt: new Date().toISOString(),
+        })
+        await loadOfficial()
+        setIsSyncing(false)
+        return
+      }
+
+      const aiData = await fetchResultsFromAI(pending)
+      if (aiData && Object.keys(aiData.results).length > 0) {
+        setAiSuggestions(prev => ({ ...prev, ...aiData.results }))
+        await db.updateSyncStatus({
+          syncSource: `Sugerencia IA: ${aiData.source || 'Claude AI'}`,
+          syncError: '',
+          lastSyncedAt: new Date().toISOString(),
+        })
+      } else {
+        await db.updateSyncStatus({
+          syncSource: official?.sync_source || '',
+          syncError: 'La IA no encontró resultados nuevos',
+          lastSyncedAt: new Date().toISOString(),
+        })
+      }
+      await loadOfficial()
+    } catch (err) {
+      try {
+        await db.updateSyncStatus({
+          syncSource: official?.sync_source || '',
+          syncError: err.message?.slice(0, 100) || 'Error desconocido',
+          lastSyncedAt: new Date().toISOString(),
+        })
+        await loadOfficial()
+      } catch (e) { console.error('Error guardando estado de sync', e) }
+    }
+    setIsSyncing(false)
+  }
+
+  async function handleAdminSave({ results }) {
+    await db.saveOfficialResults({
+      results,
+      syncSource: 'Manual (admin)',
+      syncError: '',
+      lastSyncedAt: new Date().toISOString(),
+      force: true, // el admin guarda explícitamente desde el panel; respetar su acción aunque quede vacío
+    })
+    await loadOfficial()
+  }
+
+  async function loadLeaderboard() {
+    try {
+      const rows = await db.getLeaderboard()
+      const allChallenges = await supabase.from('challenges').select('*').then(r => r.data || [])
+
+      const scored = rows.map(u => {
+        const pts = calcScore(u.predictions, official?.results || {}, u.bonus_points || 0)
+        const played = Object.keys(u.predictions || {}).filter(k => k !== 'knockout' && u.predictions[k]?.home !== undefined).length
+        // Count accepted or resolved challenges for this user
+        const acceptedChallenges = allChallenges.filter(c =>
+          (c.from_alias === u.alias || c.to_alias === u.alias) &&
+          (c.status === 'accepted' || c.status === 'resolved')
+        ).length
+        return { alias: u.alias, pts, played, avatar: u.avatar || '⚽', acceptedChallenges }
+      }).sort((a, b) => {
+        const aQ = a.played >= 20 && a.acceptedChallenges >= 2
+        const bQ = b.played >= 20 && b.acceptedChallenges >= 2
+        if (aQ && bQ) return b.pts - a.pts
+        if (aQ) return -1
+        if (bQ) return 1
+        if (b.pts !== a.pts) return b.pts - a.pts
+        return b.played - a.played
+      })
+      setLeaderboard(scored)
+    } catch (e) { console.error('Error cargando leaderboard', e) }
+  }
+
+  async function saveAll() {
+    setSaving(true)
+    try {
+      await db.updateUser(user.alias, predictions)
+      setUser(prev => ({ ...prev, predictions }))
+      setSaved(true); setTimeout(() => setSaved(false), 2500)
+    } catch (e) { alert('Error guardando. Revisá tu conexión.') }
+    setSaving(false)
+  }
+
+  function setPred(matchId, side, val) {
+    if (val === '') {
+      setPredictions(prev => ({ ...prev, [matchId]: { ...prev[matchId], [side]: undefined } }))
+      return
+    }
+    const num = parseInt(val)
+    if (isNaN(num) || num < 0 || num > 20) return
+    setPredictions(prev => ({ ...prev, [matchId]: { ...prev[matchId], [side]: num } }))
+  }
+
+  function handleAdminLogin() {
+    if (!official) { setAdminError('Cargando datos... esperá unos segundos e intentá de nuevo'); return }
+    if (adminPin === ADMIN_PIN) { setShowAdminLogin(false); setShowAdminPanel(true); setIsAdmin(true); setAdminPin(''); setAdminError('') }
+    else setAdminError('PIN incorrecto')
+  }
+
+  const officialResults = official?.results || {}
+  const [viewMode, setViewMode] = useState('date') // 'group' | 'date'
+  const [hideFinished, setHideFinishedState] = useState(() => {
+    try { return localStorage.getItem('approde_hideFinished') === 'true' } catch { return false }
+  })
+  function setHideFinished(val) {
+    setHideFinishedState(val)
+    try { localStorage.setItem('approde_hideFinished', String(val)) } catch {}
+  }
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Sort matches by date for date view
+  // Group matches by LOCAL date derived from kickoff
+  const matchesByDate = (() => {
+    const groups = {}
+    MATCHES.forEach(m => {
+      const d = m.date // usar siempre el campo date definido en el fixture
+      if (!groups[d]) groups[d] = []
+      groups[d].push(m)
+    })
+    Object.values(groups).forEach(arr => arr.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)))
+    return Object.entries(groups)
+      .sort((a, b) => new Date(a[1][0].kickoff) - new Date(b[1][0].kickoff))
+      .map(([date, matches]) => ({ date, matches }))
+  })()
+
+  const groupMatches = MATCHES.filter(m => m.group === activeGroup)
+  const myScore = calcScore(predictions, officialResults, user?.bonus_points || 0)
+  const completedPreds = Object.keys(predictions).filter(k => k !== 'knockout').length
+
+  if (!user) return <AuthScreen onLogin={setUser} />
+
+  const S = {
+    app: { minHeight: '100vh', background: 'linear-gradient(160deg, #0a0e1a 0%, #0d1b2e 100%)', fontFamily: "'Inter', sans-serif", color: '#e2e8f0', paddingBottom: 80 },
+    header: { background: '#111827cc', backdropFilter: 'blur(20px)', borderBottom: '1px solid #1e2535', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 8, position: 'sticky', top: 0, zIndex: 100 },
+    nav: { position: 'fixed', bottom: 0, left: 0, right: 0, background: '#111827', borderTop: '1px solid #1e2535', display: 'flex', zIndex: 100 },
+    navBtn: (a) => ({ flex: 1, padding: '13px 0', border: 'none', cursor: 'pointer', background: 'transparent', color: a ? '#f7c948' : '#4a5568', fontSize: 10, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, borderTop: a ? '2px solid #f7c948' : '2px solid transparent' }),
+    card: { background: '#111827', border: '1px solid #1e2535', borderRadius: 16, padding: 16, marginBottom: 12 },
+    input: { width: 50, textAlign: 'center', padding: '10px 0', background: '#0d1117', border: '1px solid #1e2535', borderRadius: 10, color: '#fff', fontSize: 18, fontWeight: 700, outline: 'none' },
+    onShare: (match) => setShareMatch(match),
+    alias: user.alias,
+  }
+
+  return (
+    <div style={S.app}>
+      {showAdminPanel && <AdminPanel official={official} onSave={handleAdminSave} onForceSync={runAutoSync} isSyncing={isSyncing} aiSuggestions={aiSuggestions} onDismissSuggestion={(id) => setAiSuggestions(prev => { const n = { ...prev }; delete n[id]; return n })} onClose={() => setShowAdminPanel(false)} />}
+
+      {/* Community Modals */}
+      {shareMatch && (
+        <ShareModal
+          match={shareMatch}
+          pred={predictions[shareMatch.id] || {}}
+          myScore={myScore}
+          alias={user.alias}
+          official={officialResults[shareMatch.id]}
+          onClose={() => setShareMatch(null)}
+        />
+      )}
+      {viewingProfile && (
+        <PlayerProfile
+          alias={viewingProfile}
+          myAlias={user.alias}
+          officialResults={officialResults}
+          onClose={() => setViewingProfile(null)}
+          onChallenge={(alias) => { setViewingProfile(null); setChallengingAlias(alias) }}
+        />
+      )}
+      {showLeagues && (
+        <LeaguesPanel
+          myAlias={user.alias}
+          officialResults={officialResults}
+          onClose={() => setShowLeagues(false)}
+        />
+      )}
+      {showAvatarPicker && (
+        <AvatarPicker
+          current={user.avatar || '⚽'}
+          onSelect={async (avatar) => {
+            setUser(prev => ({ ...prev, avatar })) // optimista, se ve al instante
+            try {
+              await db.updateAvatar(user.alias, avatar)
+            } catch (e) {
+              alert('No se pudo guardar el avatar: ' + e.message)
+            }
+          }}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
+      {showChallenges && (
+        <ChallengesInbox
+          challenges={challenges}
+          myAlias={user.alias}
+          officialResults={officialResults}
+          onAccept={async (id, action) => {
+            try {
+              if (action === 'accept') await db.acceptChallenge(id)
+              else if (action === 'cancel') await db.deleteChallenge(id)
+              else await supabase.from('challenges').update({ status: 'rejected' }).eq('id', id)
+              await loadChallenges(user.alias)
+            } catch (e) {
+              alert('Error: ' + e.message)
+            }
+          }}
+          onClose={() => setShowChallenges(false)}
+        />
+      )}
+      {challengingAlias && (
+        <ChallengeModal
+          myAlias={user.alias}
+          toAlias={challengingAlias}
+          predictions={predictions}
+          officialResults={officialResults}
+          onClose={() => setChallengingAlias(null)}
+          onSend={() => loadChallenges(user.alias)}
+        />
+      )}
+
+      {showAdminLogin && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000cc', zIndex: 150, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#111827', borderRadius: 20, padding: 32, width: 300, border: '1px solid #ff6b3544' }}>
+            <div style={{ fontWeight: 800, color: '#ff6b35', marginBottom: 20, fontSize: 18 }}>🔐 Acceso Admin</div>
+            <input value={adminPin} onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              type="password" inputMode="numeric" placeholder="PIN admin"
+              onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
+              style={{ width: '100%', padding: '13px 16px', background: '#0d1117', border: '1px solid #1e2535', borderRadius: 12, color: '#fff', fontSize: 20, letterSpacing: 8, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }} />
+            {adminError && <div style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 12 }}>{adminError}</div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setShowAdminLogin(false); setAdminPin(''); setAdminError('') }} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '1px solid #1e2535', background: 'none', color: '#8892a0', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleAdminLogin} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: '#ff6b35', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Entrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={S.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
+          <img src={LOGO_SRC} alt="APPro" style={{ height: 28, flexShrink: 0 }} />
+          <span style={{ background: '#1e2535', color: '#f7c948', fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6, letterSpacing: 1, flexShrink: 0 }}>BETA</span>
+          <button onClick={() => setShowAvatarPicker(true)} title="Cambiar avatar" style={{ background: '#1e2535', border: '1px solid #2a3040', borderRadius: 10, cursor: 'pointer', fontSize: 20, padding: '2px 6px', flexShrink: 0, lineHeight: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            {user.avatar || '⚽'}<span style={{ fontSize: 9, color: '#4a5568' }}>✏️</span>
+          </button>
+          <span style={{ color: '#4a5568', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.alias}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <ScoreBadge pts={myScore} />
+          <button onClick={() => setShowLeagues(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13 }}>🏘️</button>
+          <button onClick={() => setShowAdminLogin(true)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13, display:'flex', alignItems:'center' }}><Settings size={14}/></button>
+          <button onClick={() => setUser(null)} style={{ background: 'none', border: '1px solid #2a3040', color: '#4a5568', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', fontSize: 13, display:'flex', alignItems:'center' }}><LogOut size={14}/></button>
+        </div>
+      </div>
+
+      {isAdmin && <SyncBar official={official} isSyncing={isSyncing} />}
+
+      {isAdmin && Object.keys(aiSuggestions).length > 0 && (
+        <div onClick={() => setShowAdminPanel(true)} style={{
+          background: '#6366f122', borderBottom: '1px solid #6366f144', padding: '10px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
+        }}>
+          <span style={{ color: '#a5b4fc', fontSize: 13, fontWeight: 700 }}>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Sparkles size={14}/> La IA encontró {Object.keys(aiSuggestions).length} resultado{Object.keys(aiSuggestions).length > 1 ? 's' : ''} nuevo{Object.keys(aiSuggestions).length > 1 ? 's' : ''}</span>
+          </span>
+          <span style={{ color: '#6366f1', fontSize: 12, fontWeight: 700 }}>Revisar →</span>
+        </div>
+      )}
+
+      {/* Challenges banner */}
+      {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 0 && (
+        <div onClick={() => setShowChallenges(true)} style={{
+          background: 'linear-gradient(90deg,#6366f122,#8b5cf622)', borderBottom: '1px solid #6366f144',
+          padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer',
+        }}>
+          <span style={{ color: '#a5b4fc', fontSize: 13, fontWeight: 600 }}>
+            ⚔️ Tenés {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length} desafío{challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 1 ? 's' : ''} pendiente{challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 1 ? 's' : ''}
+          </span>
+          <span style={{ color: '#6366f1', fontSize: 13, fontWeight: 700 }}>Ver →</span>
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
+
+        {/* MATCHES */}
+        {tab === 'matches' && (
+          <div>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: '0 0 4px' }}>Partidos</h2>
+                <p style={{ color: '#4a5568', fontSize: 13, margin: 0 }}>{completedPreds} / {MATCHES.length} grupos pronosticados</p>
+              </div>
+              <button onClick={async () => { setRefreshing(true); await loadOfficial(); setRefreshing(false) }} disabled={refreshing} style={{
+                background: '#1e2535', border: '1px solid #2a3040', borderRadius: 10, padding: '6px 12px',
+                color: '#8892a0', fontSize: 12, cursor: 'pointer', flexShrink: 0,
+              }}><span style={{display:'inline-flex',alignItems:'center',gap:6}}><RefreshCw size={13} className={refreshing ? 'spin' : ''}/> Actualizar</span></button>
+            </div>
+            <div style={{ height: 4, background: '#1e2535', borderRadius: 4, marginBottom: 16, overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#f7c948,#ff6b35)', width: `${(completedPreds / MATCHES.length) * 100}%`, transition: 'width .4s' }} />
+            </div>
+
+            {/* View toggle */}
+            <div style={{ display: 'flex', background: '#0a0e1a', borderRadius: 12, padding: 4, marginBottom: 12 }}>
+              {[['group','🏟 Por Grupo'],['date','📅 Por Fecha']].map(([mode, label]) => (
+                <button key={mode} onClick={() => setViewMode(mode)} style={{
+                  flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                  background: viewMode === mode ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : 'transparent',
+                  color: viewMode === mode ? '#0a0e1a' : '#5a6070',
+                }}>{label}</button>
+              ))}
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, cursor: 'pointer', userSelect: 'none' }}>
+              <input type="checkbox" checked={hideFinished} onChange={e => setHideFinished(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#ff6b35' }} />
+              <span style={{ color: '#8892a0', fontSize: 13 }}>Ocultar partidos finalizados</span>
+            </label>
+
+            {/* GROUP VIEW */}
+            {viewMode === 'group' && (<>
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
+                {Object.keys(GROUPS).map(g => (
+                  <button key={g} onClick={() => setActiveGroup(g)} style={{
+                    padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0,
+                    background: activeGroup === g ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
+                    color: activeGroup === g ? '#0a0e1a' : '#8892a0',
+                  }}>{g === '16' ? '⚔️ 16avos' : `Grupo ${g}`}</button>
+                ))}
+              </div>
+              {activeGroup !== '16' && (
+                <>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {GROUPS[activeGroup]?.map(t => (
+                      <span key={t} style={{ background: '#1e2535', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#8892a0' }}>
+                        <Flag team={t} size={13} /> {t}
+                      </span>
+                    ))}
+                  </div>
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent(`Grupo ${activeGroup} Mundial 2026 tabla de posiciones`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+                      background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+                      padding: '5px 14px', color: '#8892a0', fontSize: 12, marginBottom: 16,
+                    }}
+                  ><BarChart3 size={14} /> Ver tabla actualizada del Grupo {activeGroup}</a>
+                </>
+              )}
+              {activeGroup === '16' && (
+                <a
+                  href="https://www.google.com/search?q=cuadro+16avos+de+final+Mundial+2026"
+                  target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+                    background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+                    padding: '5px 14px', color: '#8892a0', fontSize: 12, marginBottom: 16,
+                  }}
+                ><BarChart3 size={14} /> Ver cuadro de 16avos en vivo</a>
+              )}
+              <div></div>
+              {groupMatches.filter(m => !hideFinished || !officialResults[m.id]).map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
+
+              {/* Knockout section in group view */}
+              <div style={{ marginTop: 24, marginBottom: 16, paddingTop: 20, borderTop: '2px solid #1e2535' }}>
+                <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, margin: '0 0 4px' }}>⚡ Fase Eliminatoria</h3>
+                <p style={{ color: '#4a5568', fontSize: 12, margin: '0 0 16px' }}>Pronosticá el ganador de cada partido</p>
+                <KnockoutSection predictions={predictions} setPredictions={setPredictions} S={S} />
+              </div>
+            </>)}
+
+            {/* DATE VIEW — grupos + eliminatorias cronológico */}
+            {viewMode === 'date' && (<>
+              <div style={{ color: '#4a5568', fontSize: 10, marginBottom: 8 }}>
+                {matchesByDate.length} fechas · {MATCHES.length} partidos total
+              </div>
+              {matchesByDate.map(({ date, matches }) => {
+                const visible = matches.filter(m => !hideFinished || !officialResults[m.id])
+                if (visible.length === 0) return null
+                return (
+                <div key={date}>
+                  <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 4, paddingBottom: 6, borderBottom: '1px solid #1e2535' }}>
+                    📅 {date}
+                  </div>
+                  {visible.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} showGroup />)}
+                </div>
+              )})}
+            </>)}
+          </div>
+        )}
+        {/* KNOCKOUT */}
+
+        {/* LEADERBOARD */}
+        {tab === 'leaderboard' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 22, margin: 0 }}>Posiciones</h2>
+              <button onClick={loadLeaderboard} style={{ background: '#1e2535', border: 'none', color: '#8892a0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>🔄</button>
+            </div>
+            <div style={{ background: '#0d1117', borderRadius: 12, padding: '10px 14px', marginBottom: 16, border: '1px solid #1e2535' }}>
+              <div style={{ color: '#4a5568', fontSize: 12 }}><span style={{display:'inline-flex',alignItems:'center',gap:4}}><Trophy size={14}/> Top</span> <strong style={{ color: '#f7c948' }}>20 mejores partidos</strong> · Mínimo <strong style={{ color: '#f7c948' }}>20 pronosticados</strong> y <strong style={{ color: '#f7c948' }}>2 desafíos aceptados</strong> para clasificar.</div>
+              <div style={{ color: '#3a4150', fontSize: 11, marginTop: 6 }}>Las posiciones de quienes todavía no clasificaron son provisorias y pueden cambiar.</div>
+            </div>
+            {leaderboard.length === 0 && <div style={{ textAlign: 'center', color: '#4a5568', padding: 40 }}>Sin jugadores aún...</div>}
+            {leaderboard.map((row, i) => {
+              const qualified = row.played >= 20 && row.acceptedChallenges >= 2
+              const rankPos = leaderboard.filter((r, j) => j < i && r.played >= 20 && r.acceptedChallenges >= 2).length
+              return (
+              <div key={row.alias} onClick={() => setViewingProfile(row.alias)} style={{
+                ...S.card, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer',
+                borderColor: row.alias === user.alias ? '#f7c94844' : '#1e2535',
+                background: row.alias === user.alias ? '#1a1600' : '#111827',
+                opacity: qualified ? 1 : 0.7,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                  background: !qualified ? '#1e2535' : rankPos === 0 ? '#f7c948' : rankPos === 1 ? '#b0bec5' : rankPos === 2 ? '#cd7f32' : '#1e2535',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 900, fontSize: 15,
+                  color: !qualified ? '#4a5568' : rankPos < 3 ? '#0a0e1a' : '#4a5568',
+                }}>{i + 1}</div>
+                <span style={{ fontSize: 22, flexShrink: 0 }}>{row.avatar || '⚽'}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: row.alias === user.alias ? '#f7c948' : '#e2e8f0' }}>
+                    {row.alias} {row.alias === user.alias && '← Vos'}
+                  </div>
+                  <div style={{ fontSize: 11, marginTop: 2 }}>
+                    {qualified
+                      ? <span style={{ color: '#00e5a0' }}>✓ Clasificado · {row.played} partidos · {row.acceptedChallenges} desafíos</span>
+                      : <span style={{ color: '#4a5568' }}>
+                          {row.played < 20 ? `⏳ ${row.played}/20 partidos` : '✓ Partidos OK'}
+                          {' · '}
+                          {row.acceptedChallenges < 2 ? `⚔️ ${row.acceptedChallenges}/2 desafíos` : '✓ Desafíos OK'}
+                        </span>
+                    }
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ScoreBadge pts={row.pts} />
+                  {row.alias !== user.alias && <span style={{ color: '#4a5568', fontSize: 11 }}>👁</span>}
+                </div>
+              </div>
+            )})}
+          </div>
+        )}
+      </div>
+
+      {/* Save button */}
+      {tab === 'matches' && (
+        <button onClick={saveAll} disabled={saving} style={{
+          position: 'fixed', bottom: 70, right: 20, zIndex: 99,
+          background: saved ? '#00e5a0' : 'linear-gradient(90deg,#f7c948,#ff6b35)',
+          color: '#0a0e1a', border: 'none', borderRadius: 50, padding: '14px 22px',
+          fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: '0 8px 24px #00000060',
+          opacity: saving ? 0.7 : 1,
+        }}>{saving ? 'Guardando...' : saved ? '✓ Guardado' : (<span style={{display:'inline-flex',alignItems:'center',gap:6,justifyContent:'center'}}><Save size={16}/> Guardar</span>)}</button>
+      )}
+
+      {/* Bottom nav */}
+      <div style={S.nav}>
+        {[
+          { id: 'matches',     Icon: ClipboardList, label: 'Partidos'   },
+          { id: 'leaderboard', Icon: BarChart3,      label: 'Posiciones' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={S.navBtn(tab === t.id)}>
+            <t.Icon size={18} />{t.label}
+          </button>
+        ))}
+        <button onClick={() => setShowChallenges(true)} style={{ ...S.navBtn(false), position: 'relative' }}>
+          <Swords size={18} />
+          Desafíos
+          {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length > 0 && (
+            <span style={{ position: 'absolute', top: 8, right: '50%', transform: 'translateX(8px)', background: '#ff6b35', borderRadius: '50%', width: 16, height: 16, fontSize: 10, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {challenges.filter(c => c.to_alias === user.alias && c.status === 'pending').length}
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}

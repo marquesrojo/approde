@@ -1313,7 +1313,7 @@ Responder SOLO con este JSON, sin texto adicional:
     <div style={{ ...S.card, borderColor: exact ? '#00e5a044' : correct ? '#f7c94844' : '#1e2535' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <span style={{ color: '#4a5568', fontSize: 11 }}>
-          {showGroup ? `Grupo ${match.group} · ` : ''}{match.kickoff ? localDate(match.kickoff) : match.date}
+          {showGroup ? (match.group === '16' ? '16avos · ' : `Grupo ${match.group} · `) : ''}{match.kickoff ? localDate(match.kickoff) : match.date}
           {match.kickoff && <span style={{ color: isKickoffSoon ? '#f7c948' : '#4a5568', fontWeight: isKickoffSoon ? 700 : 400 }}> · {localTime(match.kickoff)}</span>}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2396,14 +2396,6 @@ export default function App() {
                   {visible.map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} showGroup />)}
                 </div>
               )})}
-
-              {/* Eliminatorias a continuación */}
-              <div style={{ marginTop: 8 }}>
-                <div style={{ color: '#f7c948', fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 4, paddingBottom: 6, borderBottom: '1px solid #1e2535' }}>
-                  ⚡ Fase Eliminatoria — 28 Jun en adelante
-                </div>
-                <KnockoutSection predictions={predictions} setPredictions={setPredictions} S={S} />
-              </div>
             </>)}
           </div>
         )}

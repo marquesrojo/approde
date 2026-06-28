@@ -12,17 +12,18 @@ const LOGO_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAYwAAAB3CAYAAAAQ
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const GROUPS = {
   A: ['México', 'Corea del Sur', 'Sudáfrica', 'Rep. Checa'],
-  B: ['Canadá', 'Suiza', 'Qatar', 'Italia'],
+  B: ['Canadá', 'Suiza', 'Qatar', 'Bosnia'],
   C: ['Brasil', 'Marruecos', 'Escocia', 'Haití'],
   D: ['EE.UU.', 'Australia', 'Paraguay', 'Turquía'],
   E: ['Alemania', 'Ecuador', 'Costa de Marfil', 'Curazao'],
-  F: ['Países Bajos', 'Japón', 'Túnez', 'Ucrania'],
+  F: ['Países Bajos', 'Japón', 'Túnez', 'Suecia'],
   G: ['Bélgica', 'Irán', 'Egipto', 'Nueva Zelanda'],
   H: ['España', 'Uruguay', 'Arabia Saudita', 'Cabo Verde'],
-  I: ['Francia', 'Senegal', 'Noruega', 'Bolivia'],
+  I: ['Francia', 'Senegal', 'Noruega', 'Irak'],
   J: ['Argentina', 'Austria', 'Argelia', 'Jordania'],
   K: ['Portugal', 'Colombia', 'Uzbekistán', 'RD Congo'],
   L: ['Inglaterra', 'Croacia', 'Panamá', 'Ghana'],
+  '16': ['Sudáfrica','Canadá','Brasil','Japón','Alemania','Paraguay','Países Bajos','Marruecos','Costa de Marfil','Noruega','Francia','Suecia','México','Ecuador','Inglaterra','RD Congo','Bélgica','Senegal','Estados Unidos','Bosnia','España','Austria','Portugal','Croacia','Suiza','Argelia','Australia','Egipto','Argentina','Cabo Verde','Colombia','Ghana'],
 }
 
 const MATCHES = [
@@ -110,6 +111,24 @@ const MATCHES = [
   { id: 70, group: 'L', home: 'Panamá',          away: 'Croacia',         date: '23 Jun', time: '20:00 ARG', kickoff: '2026-06-23T23:00:00Z' },
   { id: 71, group: 'L', home: 'Croacia',         away: 'Ghana',           date: '27 Jun', time: '18:00 ARG', kickoff: '2026-06-27T21:00:00Z' },
   { id: 72, group: 'L', home: 'Panamá',          away: 'Inglaterra',      date: '27 Jun', time: '18:00 ARG', kickoff: '2026-06-27T21:00:00Z' },
+
+  // 16avos de final
+  { id: 73,  group: '16', home: 'Sudáfrica',      away: 'Canadá',          date: '28 Jun', time: '16:00 ARG', kickoff: '2026-06-28T19:00:00Z' },
+  { id: 74,  group: '16', home: 'Brasil',          away: 'Japón',           date: '29 Jun', time: '14:00 ARG', kickoff: '2026-06-29T17:00:00Z' },
+  { id: 75,  group: '16', home: 'Alemania',        away: 'Paraguay',        date: '29 Jun', time: '17:30 ARG', kickoff: '2026-06-29T20:30:00Z' },
+  { id: 76,  group: '16', home: 'Países Bajos',    away: 'Marruecos',       date: '29 Jun', time: '22:00 ARG', kickoff: '2026-06-30T01:00:00Z' },
+  { id: 77,  group: '16', home: 'Costa de Marfil', away: 'Noruega',         date: '30 Jun', time: '14:00 ARG', kickoff: '2026-06-30T17:00:00Z' },
+  { id: 78,  group: '16', home: 'Francia',         away: 'Suecia',          date: '30 Jun', time: '18:00 ARG', kickoff: '2026-06-30T21:00:00Z' },
+  { id: 79,  group: '16', home: 'México',          away: 'Ecuador',         date: '30 Jun', time: '22:00 ARG', kickoff: '2026-07-01T01:00:00Z' },
+  { id: 80,  group: '16', home: 'Inglaterra',      away: 'RD Congo',        date: '1 Jul',  time: '13:00 ARG', kickoff: '2026-07-01T16:00:00Z' },
+  { id: 81,  group: '16', home: 'Bélgica',         away: 'Senegal',         date: '1 Jul',  time: '17:00 ARG', kickoff: '2026-07-01T20:00:00Z' },
+  { id: 82,  group: '16', home: 'Estados Unidos',  away: 'Bosnia',          date: '1 Jul',  time: '21:00 ARG', kickoff: '2026-07-02T00:00:00Z' },
+  { id: 83,  group: '16', home: 'España',          away: 'Austria',         date: '2 Jul',  time: '16:00 ARG', kickoff: '2026-07-02T19:00:00Z' },
+  { id: 84,  group: '16', home: 'Portugal',        away: 'Croacia',         date: '2 Jul',  time: '20:00 ARG', kickoff: '2026-07-02T23:00:00Z' },
+  { id: 85,  group: '16', home: 'Suiza',           away: 'Argelia',         date: '3 Jul',  time: '00:00 ARG', kickoff: '2026-07-03T03:00:00Z' },
+  { id: 86,  group: '16', home: 'Australia',       away: 'Egipto',          date: '3 Jul',  time: '15:00 ARG', kickoff: '2026-07-03T18:00:00Z' },
+  { id: 87,  group: '16', home: 'Argentina',       away: 'Cabo Verde',      date: '3 Jul',  time: '19:00 ARG', kickoff: '2026-07-03T22:00:00Z' },
+  { id: 88,  group: '16', home: 'Colombia',        away: 'Ghana',           date: '3 Jul',  time: '22:30 ARG', kickoff: '2026-07-04T01:30:00Z' },
 ]
 
 
@@ -1719,7 +1738,7 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, aiSuggestions, o
                 padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, flexShrink: 0,
                 background: activeGroup === g ? '#ff6b35' : '#1e2535',
                 color: activeGroup === g ? '#fff' : '#8892a0',
-              }}>Grp {g}</button>
+              }>{g === '16' ? '⚔️' : `Grp ${g}`}</button>
             ))}
           </div>
 
@@ -2318,25 +2337,40 @@ export default function App() {
                     padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0,
                     background: activeGroup === g ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
                     color: activeGroup === g ? '#0a0e1a' : '#8892a0',
-                  }}>Grupo {g}</button>
+                  }}>{g === '16' ? '⚔️ 16avos' : `Grupo ${g}`}</button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                {GROUPS[activeGroup]?.map(t => (
-                  <span key={t} style={{ background: '#1e2535', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#8892a0' }}>
-                    <Flag team={t} size={13} /> {t}
-                  </span>
-                ))}
-              </div>
-              <a
-                href={`https://www.google.com/search?q=${encodeURIComponent(`Grupo ${activeGroup} Mundial 2026 tabla de posiciones`)}`}
-                target="_blank" rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
-                  background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
-                  padding: '5px 14px', color: '#8892a0', fontSize: 12, marginBottom: 16,
-                }}
-              ><BarChart3 size={14} /> Ver tabla actualizada del Grupo {activeGroup}</a>
+              {activeGroup !== '16' && (
+                <>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {GROUPS[activeGroup]?.map(t => (
+                      <span key={t} style={{ background: '#1e2535', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#8892a0' }}>
+                        <Flag team={t} size={13} /> {t}
+                      </span>
+                    ))}
+                  </div>
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent(`Grupo ${activeGroup} Mundial 2026 tabla de posiciones`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+                      background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+                      padding: '5px 14px', color: '#8892a0', fontSize: 12, marginBottom: 16,
+                    }}
+                  ><BarChart3 size={14} /> Ver tabla actualizada del Grupo {activeGroup}</a>
+                </>
+              )}
+              {activeGroup === '16' && (
+                <a
+                  href="https://www.google.com/search?q=cuadro+16avos+de+final+Mundial+2026"
+                  target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+                    background: '#1e2535', border: '1px solid #2a3040', borderRadius: 20,
+                    padding: '5px 14px', color: '#8892a0', fontSize: 12, marginBottom: 16,
+                  }}
+                ><BarChart3 size={14} /> Ver cuadro de 16avos en vivo</a>
+              )}
               <div></div>
               {groupMatches.filter(m => !hideFinished || !officialResults[m.id]).map(match => <MatchCard key={match.id} match={match} predictions={predictions} officialResults={officialResults} setPred={setPred} S={S} />)}
 

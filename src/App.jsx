@@ -2385,7 +2385,7 @@ export default function App() {
               )}
               {(activeGroup === '16' || activeGroup === '8' || activeGroup === '4' || activeGroup === 'SF') && (
                 <a
-                  href={`https://www.google.com/search?q=${encodeURIComponent(activeGroup === '8' ? 'cuadro octavos de final Mundial 2026' : activeGroup === '4' ? 'cuartos de final Mundial 2026' : 'semifinales Mundial 2026' : 'cuadro 16avos de final Mundial 2026')}`}
+                  href={`https://www.google.com/search?q=${encodeURIComponent(activeGroup === '8' ? 'cuadro octavos de final Mundial 2026' : activeGroup === '4' ? 'cuartos de final Mundial 2026' : activeGroup === 'SF' ? 'semifinales Mundial 2026' : 'cuadro 16avos de final Mundial 2026')}`}
                   target="_blank" rel="noopener noreferrer"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',

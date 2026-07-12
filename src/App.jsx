@@ -26,6 +26,7 @@ const GROUPS = {
   '16': ['Sudáfrica','Canadá','Brasil','Japón','Alemania','Paraguay','Países Bajos','Marruecos','Costa de Marfil','Noruega','Francia','Suecia','México','Ecuador','Inglaterra','RD Congo','Bélgica','Senegal','Estados Unidos','Bosnia','España','Austria','Portugal','Croacia','Suiza','Argelia','Australia','Egipto','Argentina','Cabo Verde','Colombia','Ghana'],
   '8': ['Canadá','Marruecos','Paraguay','Francia','Brasil','Noruega','México','Inglaterra','Portugal','España','Estados Unidos','Bélgica','Argentina','Egipto','Suiza','Colombia'],
   '4': ['Francia','Marruecos','España','Bélgica','Noruega','Inglaterra','Argentina','Suiza'],
+  'SF': ['Francia','España','Inglaterra','Argentina'],
 }
 
 const MATCHES = [
@@ -147,6 +148,10 @@ const MATCHES = [
   { id: 98,  group: '4', home: 'España',           away: 'Bélgica',         date: '10 Jul', time: '16:00 ARG', kickoff: '2026-07-10T19:00:00Z' },
   { id: 99,  group: '4', home: 'Noruega',          away: 'Inglaterra',      date: '11 Jul', time: '18:00 ARG', kickoff: '2026-07-11T21:00:00Z' },
   { id: 100, group: '4', home: 'Argentina',        away: 'Suiza',           date: '11 Jul', time: '22:00 ARG', kickoff: '2026-07-12T01:00:00Z' },
+
+  // Semifinales
+  { id: 101, group: 'SF', home: 'Francia',         away: 'España',          date: '14 Jul', time: '16:00 ARG', kickoff: '2026-07-14T19:00:00Z' },
+  { id: 102, group: 'SF', home: 'Inglaterra',      away: 'Argentina',       date: '15 Jul', time: '16:00 ARG', kickoff: '2026-07-15T19:00:00Z' },
 ]
 
 
@@ -1331,7 +1336,7 @@ Responder SOLO con este JSON, sin texto adicional:
     <div style={{ ...S.card, borderColor: exact ? '#00e5a044' : correct ? '#f7c94844' : '#1e2535' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <span style={{ color: '#4a5568', fontSize: 11 }}>
-          {showGroup ? (match.group === '16' ? '16avos · ' : match.group === '8' ? '8vos · ' : match.group === '4' ? 'Cuartos · ' : `Grupo ${match.group} · `) : ''}{match.kickoff ? localDate(match.kickoff) : match.date}
+          {showGroup ? (match.group === '16' ? '16avos · ' : match.group === '8' ? '8vos · ' : match.group === '4' ? 'Cuartos · ' : match.group === 'SF' ? 'Semifinal · ' : `Grupo ${match.group} · `) : ''}{match.kickoff ? localDate(match.kickoff) : match.date}
           {match.kickoff && <span style={{ color: isKickoffSoon ? '#f7c948' : '#4a5568', fontWeight: isKickoffSoon ? 700 : 400 }}> · {localTime(match.kickoff)}</span>}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1753,7 +1758,7 @@ function AdminPanel({ official, onSave, onForceSync, isSyncing, aiSuggestions, o
           <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, marginBottom: 12 }}>✏️ Edición manual</div>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
             {Object.keys(GROUPS).map(g => {
-              const lbl = g === '16' ? '16avos' : g === '8' ? '8vos' : g === '4' ? 'Cuartos' : 'Grp ' + g
+              const lbl = g === '16' ? '16avos' : g === '8' ? '8vos' : g === '4' ? 'Cuartos' : g === 'SF' ? 'Semis' : 'Grp ' + g
               return (<button key={g} onClick={() => setActiveGroup(g)} style={{
                 padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, flexShrink: 0,
                 background: activeGroup === g ? '#ff6b35' : '#1e2535',
@@ -2355,10 +2360,10 @@ export default function App() {
                     padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0,
                     background: activeGroup === g ? 'linear-gradient(90deg,#f7c948,#ff6b35)' : '#1e2535',
                     color: activeGroup === g ? '#0a0e1a' : '#8892a0',
-                  }}>{g === '16' ? '⚔️ 16avos' : g === '8' ? '⚽ 8vos' : g === '4' ? '🏆 Cuartos' : `Grupo ${g}`}</button>
+                  }}>{g === '16' ? '⚔️ 16avos' : g === '8' ? '⚽ 8vos' : g === '4' ? '🏆 Cuartos' : g === 'SF' ? '🥇 Semis' : `Grupo ${g}`}</button>
                 ))}
               </div>
-              {activeGroup !== '16' && activeGroup !== '8' && activeGroup !== '4' && (
+              {activeGroup !== '16' && activeGroup !== '8' && activeGroup !== '4' && activeGroup !== 'SF' && (
                 <>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                     {GROUPS[activeGroup]?.map(t => (
@@ -2378,9 +2383,9 @@ export default function App() {
                   ><BarChart3 size={14} /> Ver tabla actualizada del Grupo {activeGroup}</a>
                 </>
               )}
-              {(activeGroup === '16' || activeGroup === '8' || activeGroup === '4') && (
+              {(activeGroup === '16' || activeGroup === '8' || activeGroup === '4' || activeGroup === 'SF') && (
                 <a
-                  href={`https://www.google.com/search?q=${encodeURIComponent(activeGroup === '8' ? 'cuadro octavos de final Mundial 2026' : activeGroup === '4' ? 'cuartos de final Mundial 2026' : 'cuadro 16avos de final Mundial 2026')}`}
+                  href={`https://www.google.com/search?q=${encodeURIComponent(activeGroup === '8' ? 'cuadro octavos de final Mundial 2026' : activeGroup === '4' ? 'cuartos de final Mundial 2026' : 'semifinales Mundial 2026' : 'cuadro 16avos de final Mundial 2026')}`}
                   target="_blank" rel="noopener noreferrer"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
